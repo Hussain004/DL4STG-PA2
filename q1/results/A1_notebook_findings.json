@@ -1,0 +1,670 @@
+{
+  "part1_targets": {
+    "target_example_1": -0.5936768651008606,
+    "target_example_2": 0.8999999761581421,
+    "sensor8_histories_identical": true,
+    "sensor7_latest": [
+      -0.5936768651008606,
+      0.8999999761581421
+    ]
+  },
+  "part1_forecast_shift": {
+    "T": {
+      "shift_mean": 0.0,
+      "shift_sd": 0.0,
+      "example1_forecast": -0.0021965925116091967
+    },
+    "S-first": {
+      "shift_mean": 1.3903136054674785,
+      "shift_sd": 0.10365812513500622,
+      "example1_forecast": -0.549942135810852
+    },
+    "ST": "not bundled",
+    "A": "not bundled"
+  },
+  "part1_required_shift": 1.4936769008636475,
+  "bundled_scores": {
+    "moving/T": [
+      0.5019749323527019,
+      0.00025960348391512397
+    ],
+    "moving/S-first-p3": [
+      0.3180130342642466,
+      0.015693763648020158
+    ],
+    "relay/ST": [
+      0.3266427675882975,
+      0.0007262864098803741
+    ],
+    "relay/A": [
+      0.0010985339448476832,
+      2.7899085215318232e-05
+    ]
+  },
+  "bundled_baselines": {
+    "relay": {
+      "zero": 0.4977201521396637,
+      "last reading": 0.6611889600753784
+    },
+    "moving": {
+      "zero": 0.5018500089645386,
+      "last reading": 0.6965779662132263
+    }
+  },
+  "reach": {
+    "T-d1": {
+      "n_sensors_reachable": 1,
+      "sensor_span": [
+        8,
+        8
+      ],
+      "n_times_reachable": 3,
+      "time_span_back": [
+        5,
+        7
+      ],
+      "area": 3,
+      "kinds": "T"
+    },
+    "T-d2": {
+      "n_sensors_reachable": 1,
+      "sensor_span": [
+        8,
+        8
+      ],
+      "n_times_reachable": 5,
+      "time_span_back": [
+        3,
+        7
+      ],
+      "area": 5,
+      "kinds": "TT"
+    },
+    "T-d3": {
+      "n_sensors_reachable": 1,
+      "sensor_span": [
+        8,
+        8
+      ],
+      "n_times_reachable": 7,
+      "time_span_back": [
+        1,
+        7
+      ],
+      "area": 7,
+      "kinds": "TTT"
+    },
+    "T-d4": {
+      "n_sensors_reachable": 1,
+      "sensor_span": [
+        8,
+        8
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 8,
+      "kinds": "TTTT"
+    },
+    "T-d5": {
+      "n_sensors_reachable": 1,
+      "sensor_span": [
+        8,
+        8
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 8,
+      "kinds": "TTTTT"
+    },
+    "T-d6": {
+      "n_sensors_reachable": 1,
+      "sensor_span": [
+        8,
+        8
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 8,
+      "kinds": "TTTTTT"
+    },
+    "S-first-d1": {
+      "n_sensors_reachable": 3,
+      "sensor_span": [
+        7,
+        9
+      ],
+      "n_times_reachable": 3,
+      "time_span_back": [
+        5,
+        7
+      ],
+      "area": 9,
+      "kinds": "ST"
+    },
+    "S-first-d2": {
+      "n_sensors_reachable": 5,
+      "sensor_span": [
+        6,
+        10
+      ],
+      "n_times_reachable": 5,
+      "time_span_back": [
+        3,
+        7
+      ],
+      "area": 25,
+      "kinds": "STST"
+    },
+    "S-first-d3": {
+      "n_sensors_reachable": 7,
+      "sensor_span": [
+        5,
+        11
+      ],
+      "n_times_reachable": 7,
+      "time_span_back": [
+        1,
+        7
+      ],
+      "area": 49,
+      "kinds": "STSTST"
+    },
+    "S-first-d4": {
+      "n_sensors_reachable": 9,
+      "sensor_span": [
+        4,
+        12
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 72,
+      "kinds": "STSTSTST"
+    },
+    "S-first-d5": {
+      "n_sensors_reachable": 11,
+      "sensor_span": [
+        3,
+        13
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 88,
+      "kinds": "STSTSTSTST"
+    },
+    "S-first-d6": {
+      "n_sensors_reachable": 13,
+      "sensor_span": [
+        2,
+        14
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 104,
+      "kinds": "STSTSTSTSTST"
+    },
+    "T-first-d1": {
+      "n_sensors_reachable": 3,
+      "sensor_span": [
+        7,
+        9
+      ],
+      "n_times_reachable": 3,
+      "time_span_back": [
+        5,
+        7
+      ],
+      "area": 9,
+      "kinds": "TS"
+    },
+    "T-first-d2": {
+      "n_sensors_reachable": 5,
+      "sensor_span": [
+        6,
+        10
+      ],
+      "n_times_reachable": 5,
+      "time_span_back": [
+        3,
+        7
+      ],
+      "area": 25,
+      "kinds": "TSTS"
+    },
+    "T-first-d3": {
+      "n_sensors_reachable": 7,
+      "sensor_span": [
+        5,
+        11
+      ],
+      "n_times_reachable": 7,
+      "time_span_back": [
+        1,
+        7
+      ],
+      "area": 49,
+      "kinds": "TSTSTS"
+    },
+    "T-first-d4": {
+      "n_sensors_reachable": 9,
+      "sensor_span": [
+        4,
+        12
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 72,
+      "kinds": "TSTSTSTS"
+    },
+    "T-first-d5": {
+      "n_sensors_reachable": 11,
+      "sensor_span": [
+        3,
+        13
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 88,
+      "kinds": "TSTSTSTSTS"
+    },
+    "T-first-d6": {
+      "n_sensors_reachable": 13,
+      "sensor_span": [
+        2,
+        14
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 104,
+      "kinds": "TSTSTSTSTSTS"
+    },
+    "ST-d1": {
+      "n_sensors_reachable": 3,
+      "sensor_span": [
+        7,
+        9
+      ],
+      "n_times_reachable": 3,
+      "time_span_back": [
+        5,
+        7
+      ],
+      "area": 9,
+      "kinds": "ST"
+    },
+    "ST-d2": {
+      "n_sensors_reachable": 5,
+      "sensor_span": [
+        6,
+        10
+      ],
+      "n_times_reachable": 5,
+      "time_span_back": [
+        3,
+        7
+      ],
+      "area": 25,
+      "kinds": "STST"
+    },
+    "ST-d3": {
+      "n_sensors_reachable": 7,
+      "sensor_span": [
+        5,
+        11
+      ],
+      "n_times_reachable": 7,
+      "time_span_back": [
+        1,
+        7
+      ],
+      "area": 49,
+      "kinds": "STSTST"
+    },
+    "ST-d4": {
+      "n_sensors_reachable": 9,
+      "sensor_span": [
+        4,
+        12
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 72,
+      "kinds": "STSTSTST"
+    },
+    "ST-d5": {
+      "n_sensors_reachable": 11,
+      "sensor_span": [
+        3,
+        13
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 88,
+      "kinds": "STSTSTSTST"
+    },
+    "ST-d6": {
+      "n_sensors_reachable": 13,
+      "sensor_span": [
+        2,
+        14
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 104,
+      "kinds": "STSTSTSTSTST"
+    },
+    "A-d1": {
+      "n_sensors_reachable": 16,
+      "sensor_span": [
+        0,
+        15
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 128,
+      "kinds": "A"
+    },
+    "A-d2": {
+      "n_sensors_reachable": 16,
+      "sensor_span": [
+        0,
+        15
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 128,
+      "kinds": "AA"
+    },
+    "A-d3": {
+      "n_sensors_reachable": 16,
+      "sensor_span": [
+        0,
+        15
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 128,
+      "kinds": "AAA"
+    },
+    "A-d4": {
+      "n_sensors_reachable": 16,
+      "sensor_span": [
+        0,
+        15
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 128,
+      "kinds": "AAAA"
+    },
+    "A-d5": {
+      "n_sensors_reachable": 16,
+      "sensor_span": [
+        0,
+        15
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 128,
+      "kinds": "AAAAA"
+    },
+    "A-d6": {
+      "n_sensors_reachable": 16,
+      "sensor_span": [
+        0,
+        15
+      ],
+      "n_times_reachable": 8,
+      "time_span_back": [
+        0,
+        7
+      ],
+      "area": 128,
+      "kinds": "AAAAAA"
+    }
+  },
+  "relay_near_far": {
+    "T": "not in manifest",
+    "S-first": "not in manifest",
+    "ST": {
+      "near": [
+        0.006947683480878671,
+        0.001141309728586929
+      ],
+      "far": [
+        0.5003677507241567,
+        0.0005329690024943265
+      ]
+    },
+    "A": {
+      "near": [
+        0.001077526054965953,
+        3.213022536420384e-05
+      ],
+      "far": [
+        0.00110994977876544,
+        2.6467801737705873e-05
+      ]
+    }
+  },
+  "relay_near_far_recheck": {
+    "T": "not bundled",
+    "ST": {
+      "near_mean": 0.006729384884238243,
+      "near_sd": 0.001247840756807111,
+      "far_mean": 0.5057496229807535,
+      "far_sd": 0.000658846460302038
+    },
+    "A": {
+      "near_mean": 0.0010675956727936864,
+      "near_sd": 3.8585918317975195e-05,
+      "far_mean": 0.0011364728755628069,
+      "far_sd": 2.0581207792412358e-05
+    }
+  },
+  "gradient_support": {
+    "ST": {
+      "n_gradient_nonzero": 49,
+      "max_grad_outside_structural_reach": 0.0,
+      "total_abs_gradient": 0.09894512593746185
+    },
+    "A": {
+      "n_gradient_nonzero": 128,
+      "max_grad_outside_structural_reach": 0.0,
+      "total_abs_gradient": 1.013771891593933
+    }
+  },
+  "source_attention_grid": {
+    "seed0": [
+      [
+        0.010252662934362888,
+        0.008861497975885868,
+        0.011887437663972378,
+        0.00999891385436058
+      ],
+      [
+        0.01013302430510521,
+        0.01214834675192833,
+        0.023266229778528214,
+        0.011969160288572311
+      ],
+      [
+        0.006673626136034727,
+        0.9997684955596924,
+        0.02902720682322979,
+        0.04969754070043564
+      ]
+    ],
+    "seed1": [
+      [
+        0.013037058524787426,
+        0.043641265481710434,
+        0.009701317176222801,
+        0.0077345664612948895
+      ],
+      [
+        0.9720854759216309,
+        0.9996005892753601,
+        0.04635884612798691,
+        0.03154759854078293
+      ],
+      [
+        0.08220358192920685,
+        0.14703166484832764,
+        0.0041178083047270775,
+        0.9990260004997253
+      ]
+    ],
+    "seed2": [
+      [
+        0.9992959499359131,
+        0.3022521734237671,
+        0.3807550072669983,
+        0.03103005699813366
+      ],
+      [
+        0.009312791749835014,
+        0.014357205480337143,
+        0.006321765016764402,
+        0.007680743467062712
+      ],
+      [
+        0.009665049612522125,
+        0.003221338614821434,
+        0.015334786847233772,
+        0.028760895133018494
+      ]
+    ]
+  },
+  "cost_table": {
+    "notebook toy: L=H*N=8*16=128, d=32": {
+      "attention_2Ld2": 1048576,
+      "st_9Ld2": 1179648,
+      "ratio_attention_over_st": 0.8888888888888888
+    },
+    "river grid (6 rows): L=H*N=24*6=144, d=64": {
+      "attention_2Ld2": 2654208,
+      "st_9Ld2": 5308416,
+      "ratio_attention_over_st": 0.5
+    },
+    "river grid (8 rows, +R1,R2): L=24*8=192, d=64": {
+      "attention_2Ld2": 4718592,
+      "st_9Ld2": 7077888,
+      "ratio_attention_over_st": 0.6666666666666666
+    },
+    "larger grid (12 rows): L=24*12=288, d=64": {
+      "attention_2Ld2": 10616832,
+      "st_9Ld2": 10616832,
+      "ratio_attention_over_st": 1.0
+    }
+  },
+  "evaluation_protocol": {
+    "validation_seed": 2000001,
+    "test_seed": 19000001,
+    "case_seed": 19000101,
+    "test_size": 1024,
+    "moving_case_seeds": {
+      "velocity +1": 19000102,
+      "velocity +2": 19000103,
+      "velocity +3": 19000104
+    }
+  },
+  "training_protocol": {
+    "worlds": [
+      "moving",
+      "filtering",
+      "relay"
+    ],
+    "architectures": [
+      "T",
+      "S-first",
+      "T-first",
+      "ST",
+      "A"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "steps": 3000,
+    "min_steps": 1000,
+    "patience": 600,
+    "eval_every": 100,
+    "batch_size": 128,
+    "width": 32,
+    "moving_width": 8,
+    "test_seed": 19000001,
+    "lr": 0.002,
+    "device": "cuda",
+    "depth_study": true,
+    "resume": false,
+    "verify_only": false,
+    "schedule": "cosine decay to 0.00005"
+  },
+  "world_definition": {
+    "moving": {
+      "velocities": [
+        -3,
+        -2,
+        -1,
+        1,
+        2,
+        3
+      ],
+      "measurement_noise_sd": 0.25
+    },
+    "history": 8,
+    "sensors": 16
+  }
+}

@@ -1,0 +1,733 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[
+  letterpaper,
+  left=0.6in,
+  right=0.6in,
+  top=0.8in,
+  bottom=0.8in,
+  headheight=14pt,
+  headsep=0.25in,
+  footskip=0.35in
+]{geometry}
+
+\usepackage{fontspec}
+\setmainfont{Google Sans}
+\usepackage{microtype}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage[section]{placeins}
+\usepackage[hidelinks]{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{fit,positioning,calc,arrows.meta}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{needspace}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\floatpagefraction}{0.8}
+
+\graphicspath{{figures/}}
+\captionsetup{font=small,labelfont=bf,labelsep=period,skip=6pt}
+\setlist[itemize]{leftmargin=1.2em,itemsep=2pt,topsep=3pt,parsep=0pt}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=2pt,topsep=3pt,parsep=0pt}
+\setlength{\parskip}{4pt}
+\setlength{\emergencystretch}{2em}
+
+\pagestyle{plain}
+
+\setlength{\parindent}{0pt}
+
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[#1]}}}
+\newcommand{\taskbanner}[2]{\begin{center}{\small\bfseries #1}\\[3pt]{\Large\bfseries #2}\end{center}\vspace{2pt}\hrule\vspace{8pt}}
+
+\begin{document}
+
+\begin{center}
+  {\small\bfseries AI651: Deep Learning for Space, Time and Graphs}\\[6pt]
+  {\Large\bfseries Assignment 2}\\[6pt]
+  {\small Question 1: River Forecasting Proposal}
+\end{center}
+
+\vspace{2pt}
+\noindent\begin{tabular}{@{}p{0.8in}p{5.6in}@{}}
+\textbf{Name}      & Muhammad Hussain Habib \\
+\textbf{Roll no.}  & 27100016 \\
+\textbf{Repository} & \texttt{https://github.com/Hussain004/DL4STG-PA2} \\
+\end{tabular}
+
+\vspace{6pt}
+\normalsize
+
+\taskbanner{Question 1}{River Forecasting Proposal}
+
+My proposal is a small model with a lot of structure in it. There is one grid
+that holds every source, a temporal encoder that runs on each place separately,
+and four rounds of message passing along the directed river graph. Every edge of
+the graph has a learned lag kernel, so the model estimates the transport time
+itself instead of me guessing it. The reasoning comes from the first experiment
+in the companion notebook, where a model that cannot see its neighbour cannot
+use what the neighbour knows. A river forecaster has the same problem, and giving
+it the graph is the same fix.
+
+There is no data for this catchment, so the
+design is argued from what the question tells us: the four hops between the dam
+and S4, the travel times quoted in the tutorial, the fact that travel times
+change with river conditions, and the experiments in the companion notebook. In
+Section 4.6 I run one small sanity check on a synthetic river that I generated
+with Claude Code (the prompt is in the declaration at the end). Those numbers
+only show that the design trains and behaves the way I expect. They say nothing
+about the real river, and I do not use them anywhere else.
+
+\section*{1. Architecture diagram}
+
+The whole system is one tensor. I stack every place and every channel on a common
+10-minute grid, so the model never has to align the sources by itself:
+
+\begin{center}
+\begin{tabular}{@{}p{0.95in}p{5.5in}@{}}
+\textbf{Grid}      & a $30\times6\times4$ grid, B $\times$ 30 $\times$ 6 $\times$ 4 for a batch \\
+\textbf{Places}   & Dam, S1, T1, S2, S3, S4 (6 rows) \\
+\textbf{Time}     & 24 observed steps $+$ 6 forecast steps (30 columns) \\
+\textbf{Channels} & $[$level, observed?, rain, release$]$ (4 channels) \\
+\textbf{Forecast} & 4 stations $\times$ 6 steps, B $\times$ 4 $\times$ 6 levels in metres \\
+\end{tabular}
+\end{center}
+
+\begin{figure}[!t]
+\centering
+\resizebox{0.95\linewidth}{!}{%
+\begin{tikzpicture}[font=\small, >=stealth,
+  st/.style={circle, draw=blue!55!black, fill=blue!8, line width=0.9pt, minimum size=9mm, inner sep=0pt, font=\small\bfseries},
+  un/.style={circle, draw=red!65!black, fill=red!6, line width=0.9pt, minimum size=9mm, inner sep=0pt, dashed},
+  gg/.style={circle, draw=blue!60, fill=white, line width=0.9pt, minimum size=9mm, inner sep=0pt},
+  river/.style={line width=1.6pt, draw=blue!50!black, -{Stealth[length=3.2mm]}},
+  note/.style={font=\footnotesize, text=black!70, align=center}]
+\node[draw=blue!55!black, fill=blue!8, line width=0.9pt, rounded corners=2pt, minimum width=14mm, minimum height=9mm, font=\small\bfseries] (dam) at (0,0) {Dam};
+\node[st] (s1) at (3.6,0) {S1};
+\node[st] (s2) at (8.2,0) {S2};
+\node[st] (s3) at (12.4,0) {S3};
+\node[st] (s4) at (16.6,0) {S4};
+\node[st] (t1) at (5.9,1.7) {T1};
+\node[un] (u)  at (10.3,1.7) {\textbf{?}};
+\node[gg] (r1) at (8.2,-1.8) {R1};
+\node[gg] (r2) at (12.4,-1.8) {R2};
+\draw[river] (dam) -- node[above=1pt, note]{announced plan} (s1);
+\draw[river] (s1) -- (s2);
+\draw[river] (s2) -- (s3);
+\draw[river] (s3) -- (s4);
+\draw[river] (t1) -- (s2);
+\draw[river, draw=red!65!black, dashed] (u) -- (s3);
+\draw[->, dotted, line width=1.1pt, draw=blue!60] (r1) -- (s2);
+\draw[->, dotted, line width=1.1pt, draw=blue!60] (r2) -- (s3);
+\node[note, above=1pt of t1] {monitored tributary};
+\node[note, text=red!65!black, above=1pt of u] {unmonitored tributary\\(no data)};
+\node[note, below=1pt of r1] {rain gauge $\to$ S2};
+\node[note, below=1pt of r2] {rain gauge $\to$ S3};
+\node[note, below=3pt of dam] {reservoir};
+\node[note, right=8pt of s4] {$\to$ town};
+\end{tikzpicture}}\\[6pt]
+\begin{minipage}[t]{0.52\linewidth}
+\centering
+\includegraphics[width=\linewidth]{fig_river_series.pdf}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.44\linewidth}
+\centering
+\includegraphics[width=\linewidth]{fig_river_grid.pdf}
+\end{minipage}
+\caption{The catchment and the grid. \textbf{Top:} the river as a directed graph.
+Solid arrows are flow; T1 joins between S1 and S2, the unmonitored tributary
+(dashed, no data) joins between S2 and S3, and the rain gauges (dotted) are folded
+into S2 and S3. \textbf{Bottom left:} a stretch of the synthetic river used for the
+sanity check, where a change in the Dam release reaches the stations later.
+\textbf{Bottom right:} the grid the model sees (24 observed and 6 forecast columns).
+Grey cells hold no data. The red line is the forecast origin; to its right the only
+non-empty content is the announced release plan in the Dam row.}
+\label{fig:river}
+\end{figure}
+
+\subsection*{1.1 The sources and how they are combined}
+
+\begin{itemize}
+\item \textbf{Levels at S1--S4 and T1.} One value every 10 minutes, with noise,
+some missing readings and some late ones. Each goes into the level channel of its
+own row, and a second channel marks whether the reading exists.
+\item \textbf{Rain at R1 and R2.} I bin these into 10-minute totals and put them
+in the row of the place they drain into: R1 in the S2 row and R2 in the S3 row
+(assumption A4).
+\item \textbf{Reservoir.} Recorded releases go in the release channel of the Dam
+row for the observed columns. The announced schedule for the coming hour goes in
+the same channel for the six forecast columns.
+\end{itemize}
+
+Nothing else goes in. In particular, no future level and no future rainfall
+reaches the model, because the forecast columns are empty and flagged as not
+seen, except for the announced plan. The rule is simple: if I would not know it
+at issuance time, the model cannot use it.
+
+\subsection*{1.2 The three blocks}
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[font=\small, >=stealth,
+  box/.style={draw, rounded corners=3pt, align=center, inner sep=4pt, minimum height=13mm, line width=0.8pt},
+  src/.style={box, fill=blue!7, draw=blue!50!black, minimum width=40mm},
+  grd/.style={box, fill=green!9, draw=green!40!black, minimum width=36mm},
+  enc/.style={box, fill=orange!12, draw=orange!70!black, minimum width=44mm},
+  gph/.style={box, fill=green!9, draw=green!40!black, minimum width=44mm},
+  outb/.style={box, fill=red!7, draw=red!55!black, minimum width=40mm},
+  fl/.style={->, line width=0.9pt},
+  tens/.style={font=\footnotesize, text=black!65}]
+% sources
+\node[src] (s1) at (0,8.4) {S1--S4 levels\\{\footnotesize noisy, may be missing}};
+\node[src] (s2) at (0,6.4) {T1 level\\{\footnotesize monitored tributary}};
+\node[src] (s3) at (0,4.4) {Dam release\\{\footnotesize recorded $+$ announced plan}};
+\node[src] (s4) at (0,2.4) {Rain R1, R2\\{\footnotesize R1$\to$S2, R2$\to$S3}};
+% grid: tall box so every source arrow is horizontal
+\node[grd, minimum height=82mm] (grid) at (5.6,5.4) {\textbf{GRID}\\[3pt]24 observed\\$+$ 6 forecast columns\\[3pt]6 places $\times$ 4 channels\\[3pt]{\footnotesize B $\times$ 30 $\times$ 6 $\times$ 4}};
+% pipeline
+\node[enc] (stem) at (11.8,8.4) {\textbf{stem}\\{\footnotesize Linear(4$\to$d) $+$ place embedding}\\{\footnotesize B $\times$ 30 $\times$ 6 $\times$ d}};
+\node[enc] (tcn)  at (11.8,6.0) {\textbf{temporal encoder}\\{\footnotesize 4 dilated convs (1, 2, 4, 8), per place}\\{\footnotesize B $\times$ 30 $\times$ 6 $\times$ d}};
+\node[gph] (gmp)  at (11.8,3.6) {\textbf{graph space-time mixing}\\{\footnotesize 4 rounds, learned lag kernel per edge}\\{\footnotesize B $\times$ 30 $\times$ 6 $\times$ d}};
+\node[box, fill=white, dashed, minimum width=44mm] (edges) at (11.8,1.2) {\footnotesize edges: Dam$\to$S1, S1$\to$S2, T1$\to$S2,\\\footnotesize S2$\to$S3, S3$\to$S4};
+\node[outb] (ro)   at (17.4,3.6) {\textbf{read-out at $t{=}0$}\\{\footnotesize state of S1--S4}\\{\footnotesize B $\times$ 4 $\times$ d}};
+\node[outb, minimum height=16mm] (head) at (17.4,1.2) {\textbf{forecast head}\\$\hat y = y_{now} + g(h)$\\{\footnotesize B $\times$ 4 $\times$ 6, metres}};
+% flow
+\foreach \i in {s1,s2,s3,s4} \draw[fl] (\i.east) -- (\i.east -| grid.west);
+\draw[fl] (grid.east |- stem.west) -- (stem.west);
+\draw[fl] (stem.south) -- (tcn.north);
+\draw[fl] (tcn.south) -- (gmp.north);
+\draw[fl] (gmp.east) -- (ro.west);
+\draw[fl] (ro.south) -- (head.north);
+\draw[dashed, line width=0.7pt] (gmp.south) -- (edges.north);
+% residual skip: last observed level goes straight to the head
+\draw[fl, dashed, draw=black!60] (grid.south) -- ++(0,-1.6) -| (head.south);
+\node[tens, fill=white, inner sep=1pt] at (11.8,-0.75) {$y_{now}$: last observed level of S1--S4};
+\end{tikzpicture}}
+\caption{The three blocks. The grid is the only place where the sources meet. The
+temporal encoder runs on each place separately with shared weights and a learned place
+embedding, so the four stations share what they have in common while the dam can still
+behave differently. The graph stage is the only place where one place can see another.}
+\label{fig:blocks}
+\end{figure}
+
+\textbf{Alignment, projection and reshaping.} Three things change shape between
+the grid and the output:
+
+\begin{itemize}
+\item \textbf{Alignment} happens once, when the grid is built. Rain is binned onto
+the same 10-minute clock as the levels. The last observed level of each station is
+carried forward through any gap and kept separately as $y^s_0$. The announced
+schedule is written into the six forecast columns of the Dam row, one column per
+future step.
+\item \textbf{Projection} from 4 channels to $d{=}64$ features happens in the
+stem. A learned place embedding of the same width is added, so the encoder can
+treat the dam differently from a gauged station.
+\item \textbf{Reshaping} happens twice inside the encoder. The grid is viewed as
+$B\times6$ sequences of length 30 with 64 channels, convolved along time, and
+folded back.
+\end{itemize}
+
+\subsection*{1.3 How far a forecast can reach}
+
+A forecast can only use what has a path to it. The temporal encoder has a radius of $1+2+4+8=15$ steps around the read-out
+index. Each round of message passing moves information one hop along the river,
+and each edge can take its message from any lag in a window of 12 steps. So a
+message can cross the four-hop path with a lag of up to 44 steps. This means the
+S4 forecast can still be moved by the dam's release from 59 steps back, by S1
+from 48, by S2 from 37, by S3 from 26 and by S4's own history from 15.
+
+The dam is four hops from S4, which is why the graph mixing has four rounds. With
+fewer rounds the dam's release could not reach S4 at all. The reach (59 steps) is
+also much larger than the 24-step window I feed in, so the window is the limit
+and not the network. If the authority tells me the real transit is longer than I
+assume, I widen the window and nothing else changes.
+
+
+\section*{2. Assumptions}
+
+The question gives us some facts and leaves the rest open. The facts are:
+10-minute sampling; four main stations plus a monitored tributary; two rain gauges
+with stated locations; a reservoir with recorded releases and announced future
+schedules, with announcement and effective times; and station locations, river
+connectivity and distances along the river. It also says what is not supplied,
+which is precise travel times and the inflow of the unmonitored tributary, and that
+future rainfall and future water levels are not available at issuance.
+
+Everything in the table below is my own assumption. For each one I give the reason
+and what it changes in the design.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}p{0.2in}p{2.15in}p{2.15in}X@{}}
+\toprule
+\textbf{\#} & \textbf{I assume} & \textbf{because} & \textbf{therefore in my design} \\
+\midrule
+A1 & a station reports every 10 minutes unless it is flagged missing & the question says levels are recorded every ten minutes & one grid column per 10 minutes, plus a channel recording whether the reading exists \\
+\hline
+A2 & a missing reading is unknown, not zero & a water level of zero is not physically possible in a flowing river & the level cell and the flag are both set to zero, so a gap can never be read as a real zero \\
+\hline
+A3 & a late reading arrives 1--3 steps late & reporting delays are not specified & the grid carries the stale value, the flag stays one, and the corrected reading enters the next window \\
+\hline
+A4 & R1 drains into the S2 catchment and R2 into the unmonitored stream & the tutorial hints this, and R2 sits above the unmonitored stream & the rain channel of the S2 row carries R1 and the S3 row carries R2 \\
+\hline
+A5 & the announced schedule is valid for the whole coming hour at issuance & the question says schedules are announced before each forecast is issued & the plan occupies the six forecast columns of the Dam row \\
+\hline
+A6 & the dam may not execute the plan & the question asks about differences between scheduled and actual releases & the plan is an input and not a constraint, and the recorded past releases correct it (Section 5.4) \\
+\hline
+A7 & travel times are not constant and get shorter when the river is in flood & the question says travel times can change with river conditions & a learned lag kernel per edge instead of a fixed lag, so the model estimates the delay and I do not have to guess it \\
+\hline
+A8 & the history window is 24 steps (4 hours) & the dam is four hops from S4 and the tutorial's figure puts one reach at about 50 minutes, so the dam-to-S4 transit is around 2--3 hours, and the window has to cover that plus the hour being forecast & 24 observed columns, and the architecture's reach (59 steps) is not the limit \\
+\hline
+A9 & each gauge has a stable datum & no datum information is supplied & the model predicts the change from the last observed level, but the raw level is still an input, so absolute levels and flood thresholds are not lost \\
+\hline
+A10 & only part of the unmonitored tributary's inflow is explained by R2 & its catchment is unknown, and part of it will never be observable & R2's rain is an input proxy, the rest is treated as irreducible (Section 6.1), and I ask for a gauge \\
+\hline
+A11 & water does not flow upstream & the illustration shows the river flowing in one direction & the graph edges are directed, so an upstream station cannot read a downstream one \\
+\hline
+A12 & the record is at least one year of 10-minute data & the record length is not specified & about 52{,}000 windows but only of the order of $10^2$ independent flood events, so the model is small and the structure does the work \\
+\hline
+A13 & the measurement noise is 1--2\,cm and 1--2\% of readings are missing & not specified & the observed? flag is an input, and training injects dropouts so the model has seen gaps \\
+\hline
+A14 & all four stations are forecast together and on the same clock & the service issues one forecast for four stations & one shared model with one head and per-station normalisation \\
+\bottomrule
+\end{tabularx}
+\caption{The assumptions, each with the reason and what it changes in the design.}
+\label{tab:assumptions}
+\end{table}
+
+
+\section*{3. Forecasting task and data specification}
+
+\subsection*{3.1 The task}
+
+\begin{itemize}
+\item \textbf{Issuance.} Every 10 minutes, at $t=0$.
+\item \textbf{History.} 24 observed steps of 10 minutes, which is the previous
+4 hours. These are columns $0,\dots,23$ of the grid, with column 23 the current step.
+\item \textbf{Horizon.} 6 steps of 10 minutes, which is the next hour. These are
+columns $24,\dots,29$, and steps $t=1,\dots,6$ of the forecast.
+\item \textbf{Output.} 24 numbers: the level at each of S1, S2, S3, S4 for each
+of the 6 future steps.
+\end{itemize}
+
+The window is not a free choice. The dam is four hops upstream of S4 and the
+tutorial's sketch puts a single reach at about 50 minutes in calm conditions, so
+the dam-to-S4 transit is roughly two to three hours. A four-hour window covers
+that plus the hour being forecast, with some margin. It also covers the slow end
+of the range, because travel times get shorter in flood (A7). A shorter window
+could cut off the part of the upstream signal that is still on its way downstream.
+
+\subsection*{3.2 The data}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}p{0.8in}p{1.1in}p{1.25in}p{2.2in}p{0.85in}@{}}
+\toprule
+\textbf{name} & \textbf{shape} & \textbf{axes} & \textbf{source and coverage} & \textbf{at issuance} \\
+\midrule
+\textbf{Inputs} & & & & \\
+grid $X$ & B $\times$ 30 $\times$ 6 $\times$ 4 & (batch, time, place, channel) & 4 h of history plus the 1 h horizon, for 6 places & yes, except the future levels \\
+level & B $\times$ 30 $\times$ 6 $\times$ 1 & (batch, time, place) & S1--S4 and T1 every 10 min; the 6 forecast columns are empty & observed columns \\
+observed? & B $\times$ 30 $\times$ 6 $\times$ 1 & (batch, time, place) & 1 if the reading exists, 0 if the value is a gap & observed columns \\
+rain & B $\times$ 30 $\times$ 6 $\times$ 1 & (batch, time, place) & 10-min totals of R1 (S2 row) and R2 (S3 row) & observed columns \\
+release & B $\times$ 30 $\times$ 6 $\times$ 1 & (batch, time, place) & recorded releases in the Dam row, announced plan in the forecast columns & yes, both \\
+last level $y^s_0$ & B $\times$ 4 & (batch, station) & last observed level at S1--S4, carried forward through gaps & yes \\
+\textbf{Outputs} & & & & \\
+$\hat y$ & B $\times$ 4 $\times$ 6 & (batch, station, step) & water level in metres at S1--S4 for $t=1,\dots,6$ & --- \\
+\bottomrule
+\end{tabular}
+\caption{Every input and output. The grid is the only tensor that mixes places; the
+model never has to align two sources itself.}
+\label{tab:dataprot}
+\end{table}
+
+\subsection*{3.3 Alignment}
+
+All the sources are on the same 10-minute clock, so alignment is about putting
+each source in the right cell. Nothing is resampled.
+
+\begin{itemize}
+\item \textbf{Levels and releases} are already on the clock. A reading that did
+not arrive is flagged, and the last good reading is carried forward into $y^s_0$,
+so the residual head always has a reference level.
+\item \textbf{Rain} is a total over the interval since the previous reading. I
+bin it into 10-minute totals, so a 30-minute accumulation is spread over three
+columns instead of landing in one.
+\item \textbf{The plan} is a schedule and not a measurement, so it is indexed by
+step. The value announced for $t{+}1$ goes into column 24, $t{+}2$ into column
+25, and so on.
+\item \textbf{Stations} are places, so the S3 level at one step and at the next
+step sit next to each other in time and in the same row.
+\end{itemize}
+
+The one thing that is not free is space. Stations are not on a lattice. They sit
+on a chain with uneven distances, so I give the model the graph instead of a
+matrix of neighbours (Section 4.4).
+
+
+\section*{4. Model computations and design justification}
+
+\subsection*{4.1 Notation}
+
+\begin{itemize}
+\item $i \in P=\{$Dam, S1, T1, S2, S3, S4$\}$ are the places, and $s \in \{$S1, S2, S3, S4$\}$ are the forecast stations.
+\item $t$ indexes 10-minute steps. A forecast is issued at $t=0$ and covers $t=1,\dots,6$.
+\item $L=24$ is the history window, $H=6$ the horizon, and $d=64$ the width.
+\item $x_{i,t}\in\mathbb{R}^4=[\text{level},\text{observed?},\text{rain},\text{release}]$ is a grid cell, $y_{s,t}$ is the true level at station $s$, and $y^s_0$ is its last observed level.
+\item $G=\{(\text{Dam},\text{S1}),(\text{S1},\text{S2}),(\text{T1},\text{S2}),(\text{S2},\text{S3}),(\text{S3},\text{S4})\}$ is the river graph. It has 5 directed edges, and the dam is 4 hops from S4.
+\end{itemize}
+
+\subsection*{4.2 The blocks}
+
+\textbf{(1) Per-place temporal encoder.} This is one stack of dilated causal
+convolutions, applied to every place with shared weights, plus a learned place
+embedding $E_i\in\mathbb{R}^d$:
+
+\begin{equation*}
+z_{i,t} = E_i + W_e\, x_{i,t}, \qquad
+z_{i,t} \leftarrow z_{i,t} + \varphi\!\left(\mathrm{LN}\!\left(W_\ell \ast_{d_\ell} z_{i,\cdot}\right)\right),
+\end{equation*}
+for $\ell=1,\dots,4$ with dilations $d_\ell \in \{1,2,4,8\}$.
+
+The output is $Z\in\mathbb{R}^{B\times30\times6\times d}$. The dilations give a
+radius of 15 steps, well inside the 24-step window. I share the weights across the
+four stations because they behave alike, and the place embedding lets the dam be
+different, since it is the one place that is not a gauged station.
+
+\textbf{(2) Graph space-time mixing.} This is $R=4$ rounds along $G$. Every edge
+has a learned kernel over $W=12$ lags:
+
+\begin{equation*}
+m_{i,t} = \sum_{\tau=0}^{W-1} \alpha^{(r)}_e(\tau)\, W_r\, z_{j,\,t-\tau}
+\quad\text{for each edge } e=(j\to i), \qquad
+z_{i,t} \leftarrow z_{i,t} + m_{i,t} + b_e ,
+\end{equation*}
+
+\begin{equation*}
+\alpha^{(r)}_e(\tau) = \frac{\exp(\ell^{(r)}_{e,\tau})}{\sum_{\tau'}\exp(\ell^{(r)}_{e,\tau'})}
+\quad\text{with } \ell^{(r)}_{e,\tau}\in\mathbb{R}\ \text{learned},
+\end{equation*}
+
+Important point here: the transport time is a parameter
+of the model and not a constant that I fix in the design. The question does not
+give travel times and says they change with the river, so a model that needed them
+as input would be guessing. With the kernel, the model puts its own weights over
+the lags, and whoever runs the system can print those weights and check them.
+
+\textbf{(3) Read-out and forecast head.} I take one state per station at the
+forecast origin and predict a residual on the last observed level:
+
+\begin{equation*}
+h_s = z_{s,\,0}\in\mathbb{R}^{d}, \qquad
+\hat y_{s,k} = y^s_0 + g_k(h_s), \quad k=1,\dots,6,
+\end{equation*}
+
+where $g$ is a two-layer MLP. The residual keeps the numbers well scaled and makes
+the missing-data case well defined. It does not throw away the absolute level
+though, because the raw level is still an input to the encoder, and a flood warning
+depends on an absolute threshold.
+
+\textbf{(4) Objective.} The training loss is the MAE in metres,
+
+\begin{equation*}
+\mathcal{L} = \frac{1}{24}\sum_{s=1}^{4}\sum_{k=1}^{6} \left| \hat y_{s,k} - y_{s,k} \right| ,
+\end{equation*}
+
+I use it because MAE in metres is what the service will be judged on: how far off
+is the level that the operator is told about.
+
+\subsection*{4.3 Physical assumptions and learned mappings}
+
+Some parts of the model are physics that I assert, and the rest are numbers the
+model has to find. \textbf{Asserted:} the river is a directed chain with uneven
+spacing, water does not flow upstream, the dam is four hops from S4, R1 belongs to
+the S2 catchment and R2 to the unmonitored stream, and the announced plan may be
+wrong. \textbf{Learned:} how much a level moves given a change in the upstream
+level (the message matrices), how far back the useful upstream signal is (the lag
+kernels), and how a level, its trend and the releases combine into a forecast (the
+encoder and the head).
+
+I do not let the network discover the catchment from the data. With a year of data
+and a few dozen independent floods there is not enough evidence to learn the
+topology, and a model that picks up a non-causal dependency would fail during a
+flood it has not seen before, which is exactly when it matters.
+
+\subsection*{4.4 Why a graph and not a convolution over the grid}
+
+The grid has 6 rows, so I could have used a space-time convolution over the
+(time, row) axes instead of message passing. I did not, for three reasons.
+
+\begin{itemize}
+\item \textbf{Rows are not a lattice.} The rows are (Dam, S1, T1, S2, S3, S4), so
+a 3-tap kernel over that index connects S1 to T1, but T1 is a side stream and not
+a neighbour of S1 on the main river. The companion notebook makes the same point
+for its toy sensor line: adjacent indices can be very far apart physically, so the
+neighbours have to follow the geometry. Here the geometry is the graph, and the
+authority gives us the distances along the river, which a convolution over row
+indices ignores.
+\item \textbf{Stacked convolutions read upstream.} A 3-tap kernel mixes the row
+above as well as the row below, so after two layers a station's forecast depends on
+stations downstream of it. Water does not flow that way.
+\item \textbf{Directed, not symmetric.} A convolution treats both sides of the
+kernel the same. In a river the upstream and downstream neighbours are not
+interchangeable: the dam's release says something about S1, but S4 says nothing
+about the dam.
+\end{itemize}
+
+\subsection*{4.5 How the sources reach each forecast}
+
+The graph tells us what can reach what, so I can say how each source affects the
+forecast at a station $s$:
+
+\begin{itemize}
+\item \textbf{Reservoir.} The release reaches S1 almost immediately and S2 within
+about half an hour, so for those two the announced plan and the recorded releases
+matter directly, and the graph carries them. For S3 and S4 the dam's effect
+arrives hours later, outside the horizon.
+\item \textbf{Monitored tributary T1.} It joins between S1 and S2, so its level
+enters S2's forecast and, one round later, S3's and S4's.
+\item \textbf{Unmonitored tributary.} It joins between S2 and S3 and is not
+measured at all. The only handle on it is R2's rain, which is why the rain channel
+is in the S3 row.
+\item \textbf{Rain.} R1 drains into S2, so R1's 10-minute totals enter the S2
+forecast directly and reach S3 and S4 one and two rounds later. R2 drains into the
+unmonitored stream, so it reaches S3 and S4.
+\end{itemize}
+
+The most useful upstream signal is the upstream station's current reading and not
+the wave still on its way. S4's level is a lagged version of S3's, so S3's current
+reading tells the model what S4 is about to do. That is why I expect the lag
+kernel to put weight on short lags, and why the graph path matters most for the
+most downstream station.
+
+\subsection*{4.6 A sanity check on a synthetic river}
+
+There is no data, so I generated a small synthetic catchment and trained a few
+variants on it, just to check that the design trains and does what I intended. The
+prompt I gave Claude Code is in the declaration at the end. The simulator it
+produced is a kinematic-wave chain with the properties listed in the question. I
+changed it afterwards: I slowed the storage down because the levels it first
+produced moved unrealistically fast, and I made the travel times depend on flow. I
+use it only in this section.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{variant} & \textbf{MAE (m)} & \textbf{S1} & \textbf{S2} & \textbf{S3} & \textbf{S4} \\
+\midrule
+persistence (no learning)      & 0.0375 & 0.0180 & 0.0587 & 0.0489 & 0.0243 \\
+per-station ridge, univariate   & 0.0372 & 0.0184 & 0.0583 & 0.0480 & 0.0239 \\
+per-station model, no spatial path & 0.0308 & 0.0175 & 0.0448 & 0.0424 & 0.0187 \\
+\textbf{this design (graph $+$ learned delay)} & \textbf{0.0259} & 0.0157 & 0.0420 & 0.0361 & 0.0099 \\
+space-time conv over the row index & 0.0249 & 0.0136 & 0.0421 & 0.0359 & 0.0080 \\
+\bottomrule
+\end{tabular}
+\caption{Sanity check on the synthetic river: one-hour-ahead MAE in metres, 3 seeds. The
+absolute numbers depend on the simulator and mean nothing on their own. Only the ordering matters.}
+\label{tab:sanity}
+\end{table}
+
+Looking at Table \ref{tab:sanity}, three things stand out. The per-station model
+without a spatial path is clearly worse than the graph design (0.0308 vs 0.0259 m),
+which is the companion notebook's argument on the river: a model that cannot see
+the upstream cannot use it. The gain is concentrated at the downstream stations,
+and S4 improves by about half (0.0187 to 0.0099), which is what the argument in
+Section 4.5 predicts. The learned lag kernels also put most of their weight on lags
+of 0 to 40 minutes instead of on the physical transit times. This is what I
+expected, since the model is using the recent upstream reading and not the wave
+still in transit.
+
+The last row is not the one I picked. The space-time convolution over the row index
+scores slightly better on this toy (0.0249 vs 0.0259), but I would still not choose
+it because of the reason in Section 4.4: it can read downstream stations, and a
+river does not work that way. The gap is inside the noise of three seeds, so I made
+the choice on the physics.
+
+
+\section*{5. Operation and exceptional conditions}
+
+\subsection*{5.1 Missing observations}
+
+A missing reading is not a zero level, so I do not fill it in as one. The level
+cell is zeroed, the \texttt{observed?} cell is set to zero, and the encoder can tell
+the two cases apart. The model is trained with injected dropouts, so it has seen
+gaps before.
+
+I keep the flag as an input instead of just filling the gap, because a gap does not
+hurt every forecast equally. S4 leans on the upstream's current reading, so a gap at
+S3 or S4 hurts S4 the most. S1 leans on the dam, so a gap in the Dam row hurts S1
+the most. A model that was only given a carried-forward value would not know which
+of its inputs to trust.
+
+\subsection*{5.2 Delayed observations}
+
+A late reading is carried in the grid as the stale value with the flag still set to
+one, so the model can learn how much a stale reading is worth. It is still
+information, so I did not add a separate imputation stage. The flag and the stale
+value already let the model discount it, and imputation would add a failure mode of
+its own.
+
+I do not re-issue a forecast when a late reading lands. The service runs every 10
+minutes, and a re-issue would break that cadence for whoever consumes the forecasts.
+The corrected reading goes into the next window, 10 minutes later (A3).
+
+\subsection*{5.3 Announced future releases}
+
+The announced schedule is the only future information the model gets, and it sits in
+the Dam row of the six forecast columns. Since those columns hold nothing else, the
+temporal encoder is allowed to look forward across them. This is safe because they
+contain only the plan and the flag, so looking into them cannot leak a future level.
+
+\subsection*{5.4 When the dam does not do what it planned}
+
+Since the plan is sometimes wrong, and the model has to cope with that. I use two separate
+mechanisms.
+
+\begin{itemize}
+\item \textbf{Recorded past releases correct the plan.} The Dam row carries the
+actual release for the observed columns, so the model always knows what the dam
+really did, and only the future part of the plan is uncertain.
+\item \textbf{The model is trained with a noisy plan}, so it learns how much to
+trust it instead of trusting it blindly.
+\end{itemize}
+
+I keep the releases in their own row instead of spreading them over the stations,
+because a channel that means something different at every place is easy to get
+wrong.
+
+\subsection*{5.5 The ten-minute cycle}
+
+The service issues a forecast every 10 minutes. The model is a single forward pass
+of a 72{,}000-parameter network on a $B\times30\times6\times4$ grid, and the input
+for one forecast is only 24 $\times$ 6 $\times$ 4 numbers. On the GPU I trained it
+on, 3{,}000 training steps take about 90 seconds, so one inference pass is far
+inside the 10-minute budget, and even on a laptop CPU it takes a fraction of a
+second.
+
+So compute is not the risk, data is: a station that stops reporting, a plan that is
+not announced on time, or a release regime the model has not seen. The flag and the
+correction mechanism handle the first two. For the third, I use a small model and a
+learned delay instead of a hard-coded one.
+
+
+\section*{6. Uncertainty, limitations, and additional information}
+
+\subsection*{6.1 The unmonitored tributary}
+
+This is the biggest uncertainty, and the one we have the least control over. The
+tributary joins between S2 and S3 and is not measured, so nothing in the inputs
+tells the model how much water is coming in. R2's rain is the only proxy. It is a
+proxy for the catchment and not for the stream: the routing from rain to inflow is
+unknown, and part of the stream's flow is groundwater or snowmelt that no gauge
+would predict.
+
+The forecast impact is mostly at S3 and, with a delay, at S4. I respond in three
+ways. First, R2 is in the rain channel of the S3 row, which is the only handle on
+that catchment. Second, the model is told which readings are missing, so it can lean
+on the rest of the catchment's behaviour instead of the stream. Third, and most
+important, this is the one limitation the authority can actually remove, so it is
+the first request in Section 6.4.
+
+\subsection*{6.2 Travel times that change}
+
+Travel times are not given and they change with river conditions, so I treat them
+as unknown. Three things protect the model:
+
+\begin{itemize}
+\item \textbf{The delay is learned and not assumed} (Section 4.2), so a wrong guess
+about the travel time cannot hurt, and a river that runs faster in flood does not
+need a second model.
+\item \textbf{The window is sized for the slowest case}, so none of the upstream
+signal falls outside the grid.
+\item \textbf{The reach is larger than the window} (Section 1.3), so a longer
+transit only needs a wider window and no change to the architecture.
+\end{itemize}
+
+What remains unresolved is that I sized the window from the tutorial's sketch and
+not from a measurement on this catchment. The real dam-to-S4 transit has to come
+from the authority. If it is much longer than three hours, $L$ grows.
+
+\subsection*{6.3 Limitations}
+
+\begin{itemize}
+\item \textbf{No real data.} Every number here comes from a synthetic river or from
+the question. The design is argued from the facts in the question and the companion
+notebook, and the sanity check only says that the model trains and that the spatial
+path does something.
+\item \textbf{No uncertainty estimate.} The service needs to say how much to trust a
+forecast. A collection of seeds gives a small gain in accuracy, and its disagreement
+is much smaller than the error, so it is not an error bar.
+\item \textbf{One horizon, one catchment.} The value of the upstream grows with the
+horizon, and a longer forecast would change the window and the reach together.
+\item \textbf{Unknown record length.} A year of 10-minute data is about 52{,}000
+overlapping windows but only a few dozen independent flood events, so the
+data-to-parameter ratio in a real deployment is much tighter than in my sanity
+check. A 72{,}000-parameter model is at the edge of what such a record supports.
+\end{itemize}
+
+\subsection*{6.4 Additional information I would ask for}
+
+\begin{itemize}
+\item \textbf{A gauge on the unmonitored stream between S2 and S3.} This is the
+request that is the most important! The tributary is the dominant error term at S3, and no amount
+of modelling can substitute for a measurement of it. Without it the system still
+works, using R2's rain as the proxy, but S3 keeps an error floor that no
+architecture removes.
+\item \textbf{The actual travel times, or the distances and a velocity.} This is the
+one number that would let me size $L$ correctly instead of conservatively. Without
+it the system still works, since the delay is learned and the window already covers
+the slowest case.
+\item \textbf{At least one year of the record, with the gauges' datum and their outage
+history.} Without the record the model cannot be fitted at all, so this is the one
+request the system cannot do without. The outage history would also let me fit a
+per-station quality weight instead of the binary flag.
+\end{itemize}
+
+\vspace{10pt}
+\hrule
+\vspace{4pt}
+
+\section*{Generative AI Declaration}
+
+In accordance with the course policy on generative AI, I declare that I used an AI
+coding assistant (Claude Code) for this question.
+
+The prompt I used to generate the synthetic data is written below.
+It produced a Python module that simulates a river on a 10-minute clock. I edited
+its output afterwards: I slowed the storage down because the levels it produced
+first moved unrealistically fast, and I made the travel times flow-dependent so that
+they get shorter in flood.
+
+\begin{quote}
+\small
+Build a synthetic river for a design study. Directed network: Dam $\to$ S1 $\to$
+S2 $\to$ S3 $\to$ S4, a monitored tributary T1 joining at S2, and an unmonitored
+tributary joining between S2 and S3. Two rain gauges: R1 drains into the S2
+catchment, R2 drains into the unmonitored stream. The reservoir release is
+recorded in the past and announced for the coming hour, and the announced plan
+is sometimes not what actually happens. Travel times shorten when the river is
+in flood. Sampling is every 10 minutes. Add measurement noise, occasional
+missing readings and occasional late readings. The target is the true level at
+S1--S4 one hour ahead.
+\end{quote}
+
+The AI It wrote the synthetic-river simulator and the training harness for the
+sanity check in Section 4.6, and it produced the table and the figures in this
+report from the results it saved.
+
+I designed the system: the grid, the per-place temporal encoder, the four
+graph rounds with a learned lag kernel, the residual head, and the MAE objective.
+
+\end{document}

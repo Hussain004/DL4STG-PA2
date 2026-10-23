@@ -1,0 +1,11 @@
+{
+  "ensemble_mae_m": 0.025666052735847142,
+  "single_model_mae_m": 0.026044052513116082,
+  "corr_spread_error": 0.2542980618755399,
+  "mean_spread_m": 0.002884648246484382,
+  "mean_error_m": 0.025666052735847142,
+  "coverage_2sigma": 0.19056476816478152,
+  "coverage_3sigma": 0.27546628407460544,
+  "flood_ensemble_mae_m": 0.04487881592513906,
+  "flood_mean_spread_m": 0.003917425573463525
+}

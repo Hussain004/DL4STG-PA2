@@ -1,0 +1,100 @@
+{
+  "temporal": {
+    "mean_abs_forecast_change_m": 0.0,
+    "max_abs_forecast_change_m": 0.0,
+    "mae_vs_original_truth_m": 0.018507115662541603,
+    "mae_vs_swapped_truth_m": 0.016138255710019266,
+    "mae_allstations_change_m": 0.008642045695866477
+  },
+  "graph": {
+    "mean_abs_forecast_change_m": 0.005229080362720983,
+    "max_abs_forecast_change_m": 0.2629037287869096,
+    "mae_vs_original_truth_m": 0.009812104166070252,
+    "mae_vs_swapped_truth_m": 0.011879253120144824,
+    "mae_allstations_change_m": 0.01126078498692163
+  },
+  "graphlag": {
+    "mean_abs_forecast_change_m": 0.004055544757060515,
+    "max_abs_forecast_change_m": 0.08642569437745884,
+    "mae_vs_original_truth_m": 0.00978411024356384,
+    "mae_vs_swapped_truth_m": 0.011624062841276967,
+    "mae_allstations_change_m": 0.010263429903572954
+  },
+  "graphattn": {
+    "mean_abs_forecast_change_m": 0.004825103723028643,
+    "max_abs_forecast_change_m": 0.103531817512863,
+    "mae_vs_original_truth_m": 0.009123666718759926,
+    "mae_vs_swapped_truth_m": 0.011273181483986391,
+    "mae_allstations_change_m": 0.010832290017574754
+  },
+  "jointST": {
+    "mean_abs_forecast_change_m": 0.004636666773923497,
+    "max_abs_forecast_change_m": 0.09415275309873294,
+    "mae_vs_original_truth_m": 0.00843080766872441,
+    "mae_vs_swapped_truth_m": 0.01085970254228971,
+    "mae_allstations_change_m": 0.01188831649847145
+  },
+  "globalattn": {
+    "mean_abs_forecast_change_m": 0.004187936048402153,
+    "max_abs_forecast_change_m": 0.08465921661528597,
+    "mae_vs_original_truth_m": 0.00978009737377398,
+    "mae_vs_swapped_truth_m": 0.011997093244943103,
+    "mae_allstations_change_m": 0.010370006688840198
+  },
+  "reverse": {
+    "temporal": {
+      "per_station_change_m": [
+        0.0,
+        0.01892672322859733,
+        0.012451459720242284,
+        0.007124701438161446
+      ],
+      "S1_change_m": 0.0
+    },
+    "graph": {
+      "per_station_change_m": [
+        0.0,
+        0.017225987956300415,
+        0.013457254345897932,
+        0.0076298963822272
+      ],
+      "S1_change_m": 0.0
+    },
+    "graphlag": {
+      "per_station_change_m": [
+        0.0,
+        0.017348038083156405,
+        0.013338889943741992,
+        0.007030056560990587
+      ],
+      "S1_change_m": 0.0
+    },
+    "graphattn": {
+      "per_station_change_m": [
+        0.0,
+        0.017615448231779428,
+        0.013238865710712667,
+        0.007638776374031705
+      ],
+      "S1_change_m": 0.0
+    },
+    "jointST": {
+      "per_station_change_m": [
+        0.0003476107983834236,
+        0.019137690680790402,
+        0.014448192572229224,
+        0.008402093206205311
+      ],
+      "S1_change_m": 0.0003476107983834236
+    },
+    "globalattn": {
+      "per_station_change_m": [
+        0.0007052975642261711,
+        0.017567822439868267,
+        0.013240205978290358,
+        0.007029344348094303
+      ],
+      "S1_change_m": 0.0007052975642261711
+    }
+  }
+}
