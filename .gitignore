@@ -1,0 +1,20 @@
+# LaTeX: the compiled PDF is committed, the build intermediates are not.
+# report.aux stays in the working tree (LaTeX needs it to resolve cross-references
+# across passes) but is not tracked, so it creates no merge noise between branches.
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.toc
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# Large local working directories: model checkpoints and per-step predictions.
+# They are regenerable from the training scripts and are not part of the submission.
+Question1/checkpoints/
+runs/
+report_assets/
