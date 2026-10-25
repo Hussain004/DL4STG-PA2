@@ -19,6 +19,7 @@
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{multirow}
 \usepackage{tabularx}
 \usepackage{graphicx}
 \usepackage{caption}
@@ -52,7 +53,7 @@
 \begin{center}
   {\small\bfseries AI651: Deep Learning for Space, Time and Graphs}\\[6pt]
   {\Large\bfseries Assignment 2}\\[6pt]
-  {\small Question 1: River Forecasting Proposal}
+  {\small Question 1: River Forecasting Proposal; Question 2: Motion or Memory?}
 \end{center}
 
 \vspace{2pt}
@@ -343,7 +344,7 @@ rain & B $\times$ 30 $\times$ 6 $\times$ 1 & (batch, time, place) & 10-min total
 release & B $\times$ 30 $\times$ 6 $\times$ 1 & (batch, time, place) & recorded releases in the Dam row, announced plan in the forecast columns & yes, both \\
 last level $y^s_0$ & B $\times$ 4 & (batch, station) & last observed level at S1--S4, carried forward through gaps & yes \\
 \textbf{Outputs} & & & & \\
-$\hat y$ & B $\times$ 4 $\times$ 6 & (batch, station, step) & water level in metres at S1--S4 for $t=1,\dots,6$ & --- \\
+$\hat y$ & B $\times$ 4 $\times$ 6 & (batch, station, step) & water level in metres at S1--S4 for $t=1,\dots,6$ & no \\
 \bottomrule
 \end{tabular}
 \caption{Every input and output. The grid is the only tensor that mixes places; the
@@ -729,5 +730,244 @@ report from the results it saved.
 
 I designed the system: the grid, the per-place temporal encoder, the four
 graph rounds with a learned lag kernel, the residual head, and the MAE objective.
+
+\vspace{10pt}
+\hrule
+\vspace{4pt}
+
+\newpage
+
+\taskbanner{Question 2}{Motion or Memory?}
+
+% Question 2 uses its own table/figure numbering, as required by the handout
+% (Table 1, Figure 1, ...).  Question 1 labels keep their original numbers.
+\setcounter{table}{0}
+\setcounter{figure}{0}
+
+\section*{The Setup}
+
+\subsection*{Data and task}
+
+As per the manual, aftering loading Moving MNIST I split videos by index: 0--7,999 for training, 8,000--8,999 for
+validation, and 9,000--9,999 for testing. Frames are converted to float32 and
+divided by 255 so intensities lie in $[0,1]$. The model sees 5 frames and predicts
+the next 5; at normal speed a window starting at frame $t$ is
+\[X = (x_t, \dots, x_{t+4}) \; \; \; \; \; Y = (x_{t+5}, \dots, x_{t+9})\]
+I evaluate with $t=1$ (input frames 1--5, target frames 6--10) unless stated otherwise.
+
+\subsection*{Transformations}
+
+Three transformations are applied to every frame of both input $X$ and target $Y$:
+
+\begin{itemize}
+  \item {Mirror $M$:} $(M x)[i,j] = x[i, 63-j]$. The digit appearance changes since digits are not symmetric.
+  \item {Rotation $R$:} 90$^\circ$ anticlockwise via \texttt{torch.rot90}. The digits change appearance even more.
+  \item {Speed-up ($k\times$):} keep every $k$-th frame, so digits move further between the frames the model sees.
+\end{itemize}
+
+Mirror and rotation give the 8 symmetries of the square $G = \{R^a, M R^a : a=0,1,2,3\}$. For speed $k \in \{1,2,3\}$, a window is $X = (x_t, x_{t+k}, \dots, x_{t+4k})$ and $Y = (x_{t+5k}, \dots, x_{t+9k})$, keeping only target frames $\le 20$.
+
+\subsection*{Checking the transformation and window functions}
+
+I ran checks (a)--(h) with the same transform and window functions used by the
+experiments, on the random video $x$ and the marker video $p$ defined in the
+handout. All rows match. The maximum absolute differences in (a)--(c) are
+exactly $0.0$ and \texttt{torch.equal} returns \texttt{True} in each case.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  Check & Expected & Yours \\
+  \midrule
+  (a) $\max|M(M(x))-x|$ & 0 & 0 (\texttt{torch.equal True}) \\
+  (b) $\max|R^4(x)-x|$ & 0 & 0 (\texttt{torch.equal True}) \\
+  (c) $\max|M R M(x)-R^{-1}(x)|$ & 0 & 0 (\texttt{torch.equal True}) \\
+  (d) bright pixel of $M(p)$ (frame, row, column) & $(7,10,43)$ & $(7,10,43)$ \\
+  (e) bright pixel of $R(p)$ (frame, row, column) & $(7,43,10)$ & $(7,43,10)$ \\
+  (f) $1\times$ input / target frames & 1--5 / 6--10 & 1--5 / 6--10 \\
+  (g) $2\times$ input / target frames & 1,3,5,7,9 / 11,13,15,17,19 & 1,3,5,7,9 / 11,13,15,17,19 \\
+  (h) $3\times$ input / target frames & 1,4,7,10,13 / 16,19 & 1,4,7,10,13 / 16,19 \\
+  \bottomrule
+\end{tabular}
+\caption{Checks on the mirror, rotation and speed-window functions. Rows (a)--(c)
+report the maximum absolute difference and the result of \texttt{torch.equal};
+rows (d)--(e) report the bright-pixel coordinates; rows (f)--(h) report the
+input and target frame numbers returned by the window function at $t=1$.}
+\label{tab:checks}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.49\linewidth]{fig_flow_direction.pdf}
+\hfill
+\includegraphics[width=0.49\linewidth]{fig_flow_speed.pdf}
+\caption{Optical flow over the first 50 Moving MNIST training videos, pooled over 950 consecutive frame pairs. (a) Histogram of flow direction $\theta = \operatorname{atan2}(-dy, dx)$ in degrees on $[0^\circ, 360^\circ)$ with 18 bins of $20^\circ$; the dashed line marks the uniform level $1/18$. (b) Histogram of flow speed $\sqrt{dx^2 + dy^2}$ in pixels per frame; the dashed line marks the median. 103{,}050 pixels were kept (intensity $> 0.2$ in both frames and flow magnitude $> 0.5$ pixels). Median speed: 3.32 pixels per frame.}
+\label{fig:flow}
+\end{figure}
+
+\subsection*{Q2.1}
+
+Based on Figure~\ref{fig:flow}(a), mirrored and rotated trajectories would already be familiar in their motion statistics. The histogram is broad and covers every direction: all 18 bins are populated, and the bin fractions lie between about $0.026$ and $0.083$ around the uniform level $1/18 \approx 0.056$. The histogram is not exactly flat because the underlying velocities are discrete and the estimate uses only 50 videos, but no direction is systematically absent. Mirroring reflects the histogram ($\theta \mapsto 180^\circ-\theta$) and rotation shifts it by $90^\circ$; the data-generation process is square-symmetric, so these transformations map the training motion distribution onto itself. What changes is the digit appearance.
+
+From Figure~\ref{fig:flow}(b), a typical digit moves at 3.32 pixels per frame (median over 103{,}050 kept pixels across 950 frame pairs). Running at $2\times$ corresponds to roughly twice that speed in pixels per frame (about 6.64), and $3\times$ to roughly three times (about 9.96). Optical flow is unreliable where the two digits overlap, but overlaps are brief and localised, so they cannot bias the pooled histograms enough to change this conclusion.
+
+\subsection*{Q2.2}
+
+For each transformation:
+
+\begin{itemize}
+  \item {Mirror $M$:} changes the {digit appearance} only. The motion statistics (speeds, bounce behaviour, direction distribution) are unchanged, just reflected.
+  \item {Rotation $R$:} changes the {digit appearance} only. Motion statistics are unchanged, just rotated.
+  \item {Speed-up ($k\times$):} changes the {motion statistics} only (digits move further between frames). Digit appearance is unchanged.
+\end{itemize}
+
+This makes the three transformations useful as a controlled experiment because each one isolates a single factor. Mirror and rotation perturb appearance while leaving motion statistics intact, so any failure under them must come from the model tying its motion rule to what the digits look like. Speed-up perturbs motion statistics while leaving appearance intact, so any failure under it must come from the model not having seen or not being able to reach that kind of motion. Comparing the three tells us whether the model's errors are driven by appearance, by unfamiliar motion, or by architectural reach.
+
+\vspace{10pt}
+\hrule
+\vspace{4pt}
+
+\section*{ConvLSTM Baseline}
+
+\subsection*{Architecture}
+
+Each input frame undergoes
+\texttt{pixel\_unshuffle(4)}, folding each $4\times4$ pixel patch into channels: a $1\times64\times64$ frame becomes
+$16\times16\times16$. Two ConvLSTM layers follow, each with 64 hidden channels and $3\times3$ kernels (stride 1, zero
+padding 1). Layer 1 takes the folded frame; layer 2 takes layer 1's new hidden state. Hidden and cell states start at
+zero for every video. A $1\times1$ convolution maps layer 2's hidden state from 64 to 16 channels, then
+\texttt{pixel\_shuffle(4)} and a sigmoid give back a $1\times64\times64$ frame.
+
+Each ConvLSTM layer $\ell\in\{1,2\}$, with input $u_\tau$, computes
+\begin{align*}
+[\,i,\ f,\ o,\ g\,] &= \operatorname{Conv}_{3\times3}\big[\,u_\tau,\ h^{(\ell)}_{\tau-1}\,\big],\\
+c^{(\ell)}_\tau &= \sigma(f)\odot c^{(\ell)}_{\tau-1} + \sigma(i)\odot\tanh(g),\\
+h^{(\ell)}_\tau &= \sigma(o)\odot\tanh(c^{(\ell)}_\tau),
+\end{align*}
+where $[\cdot,\cdot]$ is channel concatenation and one convolution produces all four gates. For layer 1,
+$u^{(1)}_\tau$ is the folded frame; for layer 2, $u^{(2)}_\tau = h^{(1)}_\tau$. Each layer has its own weights. All
+convolutions use a learnable bias and PyTorch's default initialisation. No normalisation, dropout, or residual
+connections are added. Model A has exactly 480{,}784 trainable parameters.
+
+\paragraph{Rollout.} The network runs for 9 steps. For $\tau=1,\dots,5$, the input $u_\tau$ is the $\tau$-th input frame;
+for $\tau=6,\dots,9$, it is the network's own previous prediction $\hat{x}_\tau$. The outputs of steps 5--9 form
+$\hat{Y}=(\hat{x}_6,\dots,\hat{x}_{10})$; the outputs of steps 1--4 are thrown away. No teacher forcing is used: true
+future frames are never fed to the network, and gradients flow through the fed-back predictions.
+
+\subsection*{Training and evaluation}
+
+Model A is trained with Adam (learning rate $10^{-3}$, no schedule), batch size 32, for 30 epochs, keeping the final-epoch
+weights. One epoch is one pass over the 8{,}000 training videos in shuffled order, with one randomly sampled window per
+video ($t\in\{1,\dots,11\}$ at normal speed). The loss is squared error between prediction and target, averaged over the
+pixels and the available target frames of each video, then averaged over the videos in the batch. Every model is trained
+with seeds 0 and 1; each entry is reported as mean(seed 0, seed 1). The model was trained on an NVIDIA GeForce RTX 5060 Ti GPU (16 GB memory).
+
+\subsection*{Q2.3: Reach of model A}
+
+Model A's reach (the largest distance, in original pixels, that information can travel through the network in one time
+step) is 8 pixels. The reasoning:
+
+\begin{enumerate}
+  \item \texttt{pixel\_unshuffle(4)} maps each $4\times4$ patch to one cell of the $16\times16$ folded grid. One cell
+        corresponds to 4 original pixels (centre-to-centre); the patch width itself is not added.
+  \item A $3\times3$ spatial convolution on the folded grid lets information move from a cell to any of its 8 neighbours,
+        i.e. by one cell = 4 original pixels in each direction. The $1\times1$ output convolution,
+        \texttt{pixel\_unshuffle} and \texttt{pixel\_shuffle} do not move information.
+  \item Within one time step $\tau$, consider all paths through the spatial convolutions from the new input
+        $u_\tau$ or from the previous states $h^{(1)}_{\tau-1}$, $h^{(2)}_{\tau-1}$ to the prediction $\hat{x}_{\tau+1}$:
+        \begin{itemize}
+          \item $u_\tau \to$ ConvLSTM layer 1 ($3\times3$ conv) $\to$ ConvLSTM layer 2 ($3\times3$ conv): $+4+4 = 8$ pixels
+          \item $h^{(1)}_{\tau-1} \to$ ConvLSTM layer 1 ($3\times3$ conv) $\to$ ConvLSTM layer 2 ($3\times3$ conv): $+4+4 = 8$ pixels
+          \item $h^{(2)}_{\tau-1} \to$ ConvLSTM layer 2 ($3\times3$ conv): $+4$ pixels
+        \end{itemize}
+        The longest path determines the reach.
+  \item Total: 8 original pixels per time step.
+\end{enumerate}
+
+
+\subsection*{Model A performance}
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\begin{tabular}{@{}lccccccc@{}}
+  \toprule
+ & MSE$_1$ & MSE$_2$ & MSE$_3$ & MSE$_4$ & MSE$_5$ & $E^{(5)}$ & Params \\
+ \midrule
+\multirow{2}{*}{Model A} & 0.0166 & 0.0203 & 0.0227 & 0.0246 & 0.0264 & 0.0221 & 480784 \\
+ & \scriptsize(0.0170, 0.0161) & \scriptsize(0.0209, 0.0197) & \scriptsize(0.0234, 0.0220) & \scriptsize(0.0253, 0.0239) & \scriptsize(0.0270, 0.0257) & \scriptsize(0.0227, 0.0215) & \\
+Blank & 0.0426 & 0.0426 & 0.0426 & 0.0426 & 0.0426 & 0.0426 & 0 \\
+Copy-last & 0.0492 & 0.0604 & 0.0669 & 0.0708 & 0.0732 & 0.0641 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{Per-horizon MSE and $E^{(5)}$ on the 1,000 test videos for model A and the
+two untrained reference predictors ($1\times$, $t=1$). Model A entries are
+mean (seed 0, seed 1); parameters are trainable parameter counts.}
+\label{tab:model_a}
+\end{table}
+
+On the RTX 5060 Ti, training took 4.46\,s per epoch (mean over all 30 epochs;
+both seeds). Inference on all 1{,}000 test videos at batch size 32 took
+0.313\,s for seed 0 and 0.318\,s for seed 1 under \texttt{model.eval()} and
+\texttt{torch.no\_grad()}, starting after each batch was on the device.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig_model_a_predictions.pdf}
+  \caption{Input, prediction and ground truth for three test videos from model A (seed 0), including one video with
+  overlapping digits (video index 9001 in panel 2).}
+  \label{fig:model_a}
+\end{figure}
+
+\subsection*{Q2.4: Comparison and error growth}
+
+Model A performs well relative to both baselines, and its error grows smoothly with the
+prediction horizon.
+
+From Table~\ref{tab:model_a}, model A's mean per-horizon MSE rises from 0.0166 at horizon 1 to 0.0264 at
+horizon 5, while the baseline errors are much larger and flatter. The untrained blank
+baseline sits at $E^{(5)}=0.0426$, and the copy-last baseline at $E^{(5)}=0.0641$; model A
+achieves $E^{(5)}=0.0221$ on average over the two seeds, roughly half the error of Blank
+and about a third of the error of Copy-last.
+
+The per-horizon MSE goes up steadily with the horizon, which is what I expected: each predicted
+frame depends on the previous predictions, so errors can build up over the five frames. The gap
+to the baselines shows that the ConvLSTM is learning something useful, rather than just
+predicting a constant or copying the last frame.
+
+
+This also fits the reach estimate in Q2.3. At horizon 5 the prediction has been built through five
+steps, and each step can only move information by at most 8 pixels, so the error has more time to
+build up. The fact that the error is still small (roughly 0.02) at horizon 5, compared with
+0.04-0.07 for the baselines, suggests that two stacked $3\times3$ convolutions (reach 8 pixels) are
+enough to track a digit at normal speed, which matches the $1\times$ prediction in Q2.5.
+
+
+
+In the overlapping test video, model A's prediction gets worse while the digits cross. The two
+blobs merge into one blob, and the model does not separate them again in the displayed forecast
+window. I think this is because the model is trained with squared error. When the digits overlap,
+it cannot tell which digit will come out on which side, so it predicts something like the average
+of the possible futures. The result is a blur rather than a clear prediction.
+
+\subsection*{Q2.5: Predictions before running experiments}
+
+Before running any experiment in Testing the Baseline, my predictions are:
+
+\begin{itemize}
+  \item \textbf{Mirror:} I expect Model A to fail. It has only seen upright digits, and a mirrored
+        digit looks different. I think the filters may have learned the shape of the digits as well
+        as their motion, so a flipped digit may not match what they expect.
+  \item \textbf{Rotation:} I expect Model A to fail too. Rotation changes the digit shape even more
+        than mirroring, and the model has not seen rotated digits in training.
+  \item \textbf{Speed:} The reach is 8 pixels per step, and the normal speed is about 3.32
+        pixels/frame (Figure~\ref{fig:flow}). At $1\times$ the digit moves less than the reach, so
+        the model should be fine. At $2\times$ it moves about 6.64 pixels/frame, which is still
+        below 8 but close, so it might start to fail. At $3\times$ it moves about 9.96 pixels/frame,
+        which is more than the reach, so the model cannot connect the old and new position in one
+        step and should break down.
+\end{itemize}
 
 \end{document}
