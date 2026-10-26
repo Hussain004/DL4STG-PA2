@@ -748,7 +748,7 @@ graph rounds with a learned lag kernel, the residual head, and the MAE objective
 
 \subsection*{Data and task}
 
-As per the manual, aftering loading Moving MNIST I split videos by index: 0--7,999 for training, 8,000--8,999 for
+As per the manual, after loading Moving MNIST I split videos by index: 0--7,999 for training, 8,000--8,999 for
 validation, and 9,000--9,999 for testing. Frames are converted to float32 and
 divided by 255 so intensities lie in $[0,1]$. The model sees 5 frames and predicts
 the next 5; at normal speed a window starting at frame $t$ is
@@ -968,6 +968,223 @@ Before running any experiment in Testing the Baseline, my predictions are:
         below 8 but close, so it might start to fail. At $3\times$ it moves about 9.96 pixels/frame,
         which is more than the reach, so the model cannot connect the old and new position in one
         step and should break down.
+\end{itemize}
+
+\vspace{10pt}
+\hrule
+\vspace{4pt}
+
+\section*{Testing the Baseline}
+
+\subsection*{Mirror and rotation}
+
+I ran the handout's two measurements on all 1,000 test videos at $1\times$ with $t=1$, using the
+two trained seeds on the same GPU. For $T \in \{M, R\}$ I give the transformed input $T(X)$ to the
+model, and I also transform the model's prediction of the original scene; the consistency
+measurement is
+$\;C_T = \operatorname{MSE}\!\big(f(T(X)),\, T(f(X))\big)\;$ and the correctness measurement is
+$\;E_T = \operatorname{MSE}\!\big(f(T(X)),\, T(Y)\big)$, both averaged exactly like $E^{(5)}$.
+Figure~\ref{fig:transformations} shows the four worst videos of the seed-0 model,
+Table~\ref{tab:transformations} has the full numbers, and Figure~\ref{fig:consistency} shows the
+per-video histograms.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \begin{tabular}{@{}l ccccc@{}}
+    \toprule
+    Model & $E^{(5)}$ & $C_M$ & $E_M$ & $C_R$ & $E_R$ \\
+    \midrule
+    \multirow{2}{*}{Model A} & 0.0221 & 0.00190 & 0.0227 & 0.00316 & 0.0239 \\
+     & \scriptsize(0.0227, 0.0215) & \scriptsize(0.00187, 0.00193) & \scriptsize(0.0233, 0.0221)
+     & \scriptsize(0.00312, 0.00320) & \scriptsize(0.0244, 0.0233) \\
+    Blank & 0.0426 & 0 & 0.0426 & 0 & 0.0426 \\
+    Copy-last & 0.0641 & 0 & 0.0641 & 0 & 0.0641 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Mirror and rotation on the 1,000 test videos at $1\times$, $t=1$: the consistency gap
+  $C$ and the transformed error $E$ at both transformations, next to $E^{(5)}$. Model A entries are
+  mean (seed 0, seed 1). Blank and Copy-last are exactly consistent under both transformations, so
+  their $C$ columns are 0: their forecasts do not depend on the input content, so a transformed
+  scene just gets the transformed version of the same output. Their $E$ columns equal their
+  $E^{(5)}$ because under $M$ and $R$ every pixel only moves position, so the squared error against
+  the transformed targets is the same as against the originals.}
+  \label{tab:transformations}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\linewidth]{fig_transformation_panels.pdf}
+  \caption{The two test videos with the largest per-video $C_M$ (mirror, videos 9691 and 9163) and
+  the two with the largest per-video $C_R$ (rotation, videos 9497 and 9964), for the seed-0 model
+  A. Each panel shows four rows of ten frames: columns 1--5 are the input frames and columns 6--10
+  are forecast horizons 1--5 (the red line separates input from forecast). Row (1) shows $X$ with
+  the normal forecast $f(X)$; row (2) shows $T(X)$ with the true transformed future $T(Y)$; row (3)
+  shows $T(X)$ with the forecast from the transformed input $f(T(X))$; row (4) shows $T(X)$ with
+  the transformed copy of the normal forecast $T(f(X))$. Rows (3) and (4) agree exactly when the
+  transformation carries over to the model.}
+  \label{fig:transformations}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig_consistency_histograms.pdf}
+  \caption{Per-video consistency on the 1,000 test videos (seed-0 model A): the histogram of
+  $C_M$ (left) and $C_R$ (right). The dashed lines mark the videos shown in
+  Figure~\ref{fig:transformations}.}
+  \label{fig:consistency}
+\end{figure}
+
+\subsection*{Q2.6}
+
+Blank and Copy-last are exactly consistent without doing anything that deserves to be called
+predicting: Blank always outputs all zeros, and Copy-last just repeats the last input frame. Under
+mirror or rotation their outputs move to exactly where their outputs would have been anyway, since
+the output does not depend on what the scene contains. So their $C_M$ and $C_R$ are exactly 0.
+
+What this says about reading $C_T$ on its own: a small $C_T$ cannot mean a model is good, because
+the most useless predictor wins this test for free. $C_T$ only says that the model treats its own
+forecasts the same way as the data under the transformation, and that stays true whether the
+forecasts are right or wrong. $E_T$ is the measurement that punishes wrong predictions, so the two
+have to go together: $C_T$ tells me whether I can trust the model across a transformation, $E_T$
+tells me whether the model has anything worth trusting.
+
+\subsection*{Q2.7}
+
+I take the rotation panel, test video 9497 (largest $C_R = 0.0103$), which is the panel where rows
+3 and 4 disagree the most. I looked at the centre of the bright mass of each frame to describe the
+drift precisely. In row 2 the true digit moves steadily to the right, about 8 pixels over the five
+horizons, keeping roughly the same height. Both forecasts track that drift at first, but both fall
+behind the truth. From horizon 3 on the two rows separate: row 3, the forecast from the rotated
+input, keeps a nearly straight sideways path a little above the truth, while row 4, the rotated
+copy of the normal forecast, slows down further and bends downward, ending by horizon 5 roughly 5
+pixels away, down and to the left of row 3. Both rows also lose the digit shape and fade into soft
+clouds, so in the last frames neither looks like a digit.
+
+So the model's account of the motion changes under rotation in the sense that the model no longer
+produces the rotated version of what it would normally predict: it makes its own call about the
+rotated scene, with a different speed and a different bend in the path. This matches the values of
+$C_R$ being small overall: the disagreement is a slow sideways split that builds up with the
+horizon rather than a wrong direction from the start.
+
+\subsection*{Q2.8}
+
+Rotation is a bit harder for model A than mirroring: $C_R = 0.00316$ against $C_M = 0.00190$
+(about $1.7\times$), and $E_R = 0.0239$ against $E_M = 0.0227$, both above the normal
+$E^{(5)} = 0.0221$. From my answers to Q2.1 and Q2.2, neither transformation changes the motion
+statistics: the direction histogram in Figure~\ref{fig:flow} already covers every direction, so a
+mirrored or rotated trajectory is a motion the data produces by itself. If the motion side is unchanged, the
+difference between the two tests has to come from the digits' appearance, which is the one thing
+$R$ changes more than $M$.
+
+I think the overall message is that the model is only weakly tied to what the digits look like.
+Both $E_M$ and $E_R$ stay close to the normal error and far below the baselines, so my prediction
+in Q2.5 was wrong: model A does not fail the mirror or the rotation test, it just gets a little
+worse. The small extra damage from rotation fits an appearance argument: digits are tall and narrow with
+mostly vertical strokes, a mirror keeps them tall with vertical strokes, while a $90^\circ$ rotation
+makes them wide with horizontal strokes, which is further from anything the model saw in training.
+
+\subsection*{Faster motion}
+
+Next I rebuilt the test windows at $2\times$ and $3\times$ with $t=1$ (at $3\times$ the video only
+has room for two target frames, 16 and 19) and scored model A and Copy-last on all 1,000 test
+videos, both seeds, on the same GPU (Table~\ref{tab:speed}); Figure~\ref{fig:speed} shows one test
+video played at the three speeds with the seed-0 model.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \begin{tabular}{@{}l cc cc@{}}
+    \toprule
+    & \multicolumn{2}{c}{$E^{(2)}$} & \multicolumn{2}{c}{$E^{(5)}$} \\
+    Speed & Model A & Copy-last & Model A & Copy-last \\
+    \midrule
+    \multirow{2}{*}{$1\times$} & 0.0184 & 0.0548 & 0.0221 & 0.0641 \\
+     & \scriptsize(0.0190, 0.0179) & & \scriptsize(0.0227, 0.0215) & \\
+    \multirow{2}{*}{$2\times$} & 0.0448 & 0.0661 & 0.0497 & 0.0719 \\
+     & \scriptsize(0.0443, 0.0454) & & \scriptsize(0.0494, 0.0500) & \\
+    \multirow{2}{*}{$3\times$} & 0.0517 & 0.0703 & -- & -- \\
+     & \scriptsize(0.0508, 0.0525) & & & \\
+    \bottomrule
+  \end{tabular}
+  \caption{Faster motion on the 1,000 test videos with $t=1$: $E^{(2)}$ over the first two forecast
+  horizons and $E^{(5)}$ over all available horizons, for model A (mean of seeds 0 and 1 in the
+  small line) and Copy-last. At $3\times$ only two target frames exist (16 and 19), so
+  $E^{(5)}$ is not defined there.}
+  \label{tab:speed}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.86\linewidth]{fig_speed_panels.pdf}
+  \caption{Model A (seed 0) on test video 9633 at $1\times$, $2\times$ and $3\times$ with $t=1$:
+  five input frames, the first two predicted frames, then the same two true frames (the red line
+  separates input from forecast, the dotted line separates prediction from truth). The video was
+  picked because its digits do not overlap in any of the displayed true frames (the first three
+  input frames do overlap); its per-video
+  $E^{(2)}$ is 0.0205 at $1\times$, 0.0642 at $2\times$ and 0.0775 at $3\times$.}
+  \label{fig:speed}
+\end{figure}
+
+\subsection*{Q2.9}
+
+Model A's predictions fall apart at $2\times$. In Table~\ref{tab:speed}, $E^{(2)}$ jumps from
+0.0184 at $1\times$ to 0.0448 at $2\times$ and $E^{(5)}$ goes from 0.0221
+to 0.0497, which is even worse than the untrained Blank row (0.0426 in Table 2). At $3\times$ it
+stays broken ($E^{(2)} = 0.0517$), though model A still beats Copy-last at every speed.
+
+This agrees with my reach estimate in Q2.3 not fully. The reach said model A must fail at
+$3\times$, where a digit moves about 9.96 pixels per step and information can travel at most 8
+pixels; at $2\times$ the step is about 6.64 pixels, so the reach alone allowed it to work. What my
+estimate missed was that the reach is only a bound on how far information can move between two frames, not
+a guarantee that the trained model uses that room. Model A never saw a window where the digits
+move about 6.6 pixels or more between the frames it gets, because every training window was
+$1\times$, so its filters only ever had to handle steps of about 3.3 pixels. So the breakdown
+happens before the bound of Q2.3 is violated, and Table 4 alone cannot split how much is unseen
+motion and how much is reach.
+
+This description comes from looking at Figure~\ref{fig:speed} (seed-0 model A, video 9633). The predictions are soft and a little dimmer than the true digits at every speed,
+including $1\times$, so blur is not the speed failure. What changes with speed is where the digits
+are placed. At $1\times$ the predicted digits sit close to the true ones. At $2\times$ they lag
+behind: the predicted masses stay near their positions in the last input frame while the true digits
+move on, and the lag grows with the horizon. At $3\times$ the lag is larger, and the smaller digit
+becomes fainter and is predicted on the wrong side of its last position. I do not see a duplicated
+digit, and no digit disappears completely.
+
+The lag suggests the model applies the motion rule it learned at $1\times$ and does not scale it up
+to bigger jumps. The fading suggests that when the input does not fit that rule it hedges between
+possible positions, which under squared error gives a faint, soft blob instead of a sharp wrong one.
+
+\subsection*{Q2.10}
+
+From these results alone I cannot tell the two apart. Training never showed $2\times$ or
+$3\times$ windows, so the motion is unfamiliar; and the jumps between the given frames at those
+speeds (6.64 and 9.96 pixels per step) brush against and pass the 8-pixel reach. Both stories
+predict exactly the same thing in Table~\ref{tab:speed}: errors that jump together once the speed
+goes up. Nothing in the error numbers tells me which story is the real one.
+
+The experiment that would separate them is to train one more model with the same architecture but
+on speed-augmented windows, drawing $k$ from $\{1, 2, 3\}$ for each training window. If the $2\times$ and $3\times$ errors drop to normal levels, the
+failure was unfamiliar motion and more data fixes it. If the $3\times$ errors stay bad even though
+$3\times$ windows were in the training data, the block would be the reach, and no amount of data carries
+the digits faster than the architecture allows.
+
+\subsection*{Q2.11: Prediction before training B--D}
+
+Prediction written before training B--D:
+
+\begin{itemize}
+  \item I expect model B to fix the mirror and rotation failures, since its training windows will
+        include mirrored and rotated copies of the ordinary windows, so the digit shapes it meets
+        at test time are no longer new; I do not expect B to help with speed, since it still trains
+        only at $1\times$.
+  \item I expect model C to fix the $2\times$ failure and to improve the $3\times$ failure, because
+        the jumps that model A never practised will now be in its training data; how much of
+        $3\times$ survives depends on whether those jumps are past the 8-pixel reach, where I
+        expect extra data to stop helping.
+  \item I expect model D, which trains on the same speeds as C but carries information further in
+        one step, to be the model that fully fixes $3\times$, and in general I predict the order at
+        high speed will be D, then C, then A.
 \end{itemize}
 
 \end{document}

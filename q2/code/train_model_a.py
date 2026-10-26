@@ -34,7 +34,6 @@ class MovingMNISTWindow:
         self.dataset = dataset
         self.indices = indices
         self.speed = speed
-        self.rng = np.random.RandomState(seed)
 
     def __len__(self):
         return len(self.indices)
@@ -46,7 +45,9 @@ class MovingMNISTWindow:
 
         if self.speed == 1:
             # Normal speed: t in {1, ..., 11}
-            t = int(self.rng.randint(1, 12))  # 1-based, frames 1..20
+            # torch.randint, not a dataset-held RNG: DataLoader reseeds torch per worker
+            # and per epoch, so t differs across workers and epochs.
+            t = int(torch.randint(1, 12, (1,)))  # 1-based, frames 1..20
             x = video[t - 1:t + 4]  # frames t..t+4 (0-indexed: t-1..t+3)
             y = video[t + 4:t + 9]  # frames t+5..t+9 (0-indexed: t+4..t+8)
         else:
