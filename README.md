@@ -21,7 +21,7 @@ and transformation checks.
 | `q2/results/` | result JSONs for Tables 2, 3 and 4 (seeds 0 and 1) |
 | `tutorial/` | the tutorial HTML for Question 1 and Question 2 |
 
-## Question 1 in one paragraph
+## Question 1
 
 The submission reproduces the river-intervention experiments: the trained models,
 the diagnostic/probe scripts, the lookback-contrast and upstream analyses, the
@@ -32,7 +32,7 @@ the write-up. See `q1/code/run_all_lab.sh` for the exact commands and
 `Question1/checkpoints/` (the `.pt` weights) are not committed; they are large
 and regenerable with the scripts above.
 
-## Question 2 in one paragraph
+## Question 2
 
 The baseline is the two-layer ConvLSTM of Shi et al. (2015) without peepholes:
 `pixel_unshuffle(4)`, two 64-channel 3x3 ConvLSTM layers, and a 1x1 convolution
