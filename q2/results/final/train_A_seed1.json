@@ -1,0 +1,11 @@
+{
+  "name": "A",
+  "seed": 1,
+  "arch": "baseline",
+  "speed_aug": false,
+  "sym_aug": false,
+  "params": 480784,
+  "mean_epoch_time": 4.46,
+  "note": "from the original training log (runs/train_seed1.log); per-epoch times not stored",
+  "gpu": "NVIDIA GeForce RTX 5060 Ti"
+}

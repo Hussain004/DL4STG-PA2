@@ -92,6 +92,25 @@ def draw_panel(ax, rows, reveal, title, show_ylabels=True):
         spine.set_visible(False)
 
 
+def save_gif(rows, title, gif_path):
+    """One GIF per panel: the four rows stay fixed, one forecast column is revealed per frame."""
+    fig, ax = plt.subplots(figsize=(9.2, 4.4))
+    fig.subplots_adjust(left=0.2, right=0.99, top=0.9, bottom=0.08)
+    # Render each frame ourselves: FuncAnimation/PillowWriter truncates a
+    # 9.2 in x 100 dpi figure to 919 px but writes a 920 px buffer, which
+    # shears every frame.
+    frames = []
+    for h in range(1, 6):
+        draw_panel(ax, rows, reveal=h, title=title + f"   -   horizon {h}",
+                   show_ylabels=True)
+        fig.canvas.draw()
+        frames.append(Image.fromarray(
+            np.asarray(fig.canvas.buffer_rgba())[..., :3].copy()))
+    frames[0].save(gif_path, save_all=True, append_images=frames[1:],
+                   duration=700, loop=0)
+    plt.close(fig)
+
+
 def plot_histograms(per_video, selections, path):
     """Figure 4: per-video C_M and C_R with the Figure 3 videos marked.
 
@@ -212,30 +231,15 @@ def main():
 
     # ---- one GIF per panel -------------------------------------------
     for sel, rows in panels:
-        fig, ax = plt.subplots(figsize=(9.2, 4.4))
         title = (f"{sel['label']}: video {sel['video']} "
                  f"({'largest' if sel['rank'] == 1 else '2nd largest'} "
                  f"$C_{{{sel['symbol']}}}$ = {fmt(sel['C'])})")
-
-        fig.subplots_adjust(left=0.2, right=0.99, top=0.9, bottom=0.08)
-        # Render each frame ourselves: FuncAnimation/PillowWriter truncates a
-        # 9.2 in x 100 dpi figure to 919 px but writes a 920 px buffer, which
-        # shears every frame.
-        frames = []
-        for h in range(1, 6):
-            draw_panel(ax, rows, reveal=h, title=title + f"   -   horizon {h}",
-                       show_ylabels=True)
-            fig.canvas.draw()
-            frames.append(Image.fromarray(
-                np.asarray(fig.canvas.buffer_rgba())[..., :3].copy()))
         tag_name = "mirror" if sel["tag"] == "mirror" else "rotation"
         gif_path = os.path.join(
             args.gif_dir,
             f"fig3_{tag_name}_rank{sel['rank']}_video{sel['video']}.gif",
         )
-        frames[0].save(gif_path, save_all=True, append_images=frames[1:],
-                       duration=700, loop=0)
-        plt.close(fig)
+        save_gif(rows, title, gif_path)
         print(f"Saved {gif_path}")
 
     # ---- Figure 4: per-video histograms ------------------------------

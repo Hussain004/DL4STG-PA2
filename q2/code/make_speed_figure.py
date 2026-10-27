@@ -96,6 +96,51 @@ def mse_video(pred, y):
     return float(((pred - y) ** 2).mean(dim=(1, 2, 3)).mean())
 
 
+def draw_speed_figure(rows, paths):
+    """rows: [(input, pred, true)] for k = 1, 2, 3; saves the figure to every path in `paths`."""
+    h, w = 64, 64
+    gap = 2
+    wide = 14
+    col_start = [0]
+    for c in range(1, 9):
+        col_start.append(col_start[-1] + w + (wide if c == 7 else gap))
+    canvas_w = col_start[8] + w
+    canvas_h = 3 * h + 2 * gap
+    canvas = np.ones((canvas_h, canvas_w), dtype=np.float32)
+    for r, (inp, pred, true) in enumerate(rows):
+        strip = torch.cat([inp, pred, true], dim=0).squeeze(1).cpu().numpy()
+        for c in range(9):
+            xoff = col_start[c]
+            yoff = r * (h + gap)
+            canvas[yoff:yoff + h, xoff:xoff + w] = strip[c]
+
+    fig, ax = plt.subplots(figsize=(8.6, 2.7))
+    ax.imshow(canvas, cmap="gray", vmin=0, vmax=1, aspect="equal",
+              interpolation="nearest")
+    ax.set_yticks([r * (h + gap) + h / 2 for r in range(3)])
+    ax.set_yticklabels(
+        [f"$1\\times$\ntrue {TRUE_FRAMES[1]}",
+         f"$2\\times$\ntrue {TRUE_FRAMES[2]}",
+         f"$3\\times$\ntrue {TRUE_FRAMES[3]}"],
+        fontsize=7,
+    )
+    ax.set_xticks([
+        (col_start[0] + col_start[4] + w) / 2,
+        (col_start[5] + col_start[6] + w) / 2,
+        (col_start[7] + col_start[8] + w) / 2,
+    ])
+    ax.set_xticklabels(["input", "pred", "true"], fontsize=8.5)
+    ax.tick_params(length=0, pad=2)
+    ax.axvline(col_start[4] + w + gap / 2, color="#d62728", lw=1.0)
+    ax.axvline(col_start[6] + w + wide / 2, color="#1f77b4", lw=1.0, ls=":")
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    plt.tight_layout()
+    for path in paths:
+        plt.savefig(path, dpi=200 if path.endswith(".pdf") else 150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0)
@@ -153,51 +198,9 @@ def main():
         e2[str(k)] = mse_video(pred, true)
         print(f"  {k}x: per-video E(2) = {e2[str(k)]:.6f}")
 
-    # --- compose the figure --------------------------------------------
-    h, w = 64, 64
-    gap = 2
-    wide = 14
-    col_start = [0]
-    for c in range(1, 9):
-        col_start.append(col_start[-1] + w + (wide if c == 7 else gap))
-    canvas_w = col_start[8] + w
-    canvas_h = 3 * h + 2 * gap
-    canvas = np.ones((canvas_h, canvas_w), dtype=np.float32)
-    for r, (inp, pred, true) in enumerate(rows):
-        strip = torch.cat([inp, pred, true], dim=0).squeeze(1).cpu().numpy()
-        for c in range(9):
-            xoff = col_start[c]
-            yoff = r * (h + gap)
-            canvas[yoff:yoff + h, xoff:xoff + w] = strip[c]
-
-    fig, ax = plt.subplots(figsize=(8.6, 2.7))
-    ax.imshow(canvas, cmap="gray", vmin=0, vmax=1, aspect="equal",
-              interpolation="nearest")
-    ax.set_yticks([r * (h + gap) + h / 2 for r in range(3)])
-    ax.set_yticklabels(
-        [f"$1\\times$\ntrue {TRUE_FRAMES[1]}",
-         f"$2\\times$\ntrue {TRUE_FRAMES[2]}",
-         f"$3\\times$\ntrue {TRUE_FRAMES[3]}"],
-        fontsize=7,
-    )
-    ax.set_xticks([
-        (col_start[0] + col_start[4] + w) / 2,
-        (col_start[5] + col_start[6] + w) / 2,
-        (col_start[7] + col_start[8] + w) / 2,
-    ])
-    ax.set_xticklabels(["input", "pred", "true"], fontsize=8.5)
-    ax.tick_params(length=0, pad=2)
-    ax.axvline(col_start[4] + w + gap / 2, color="#d62728", lw=1.0)
-    ax.axvline(col_start[6] + w + wide / 2, color="#1f77b4", lw=1.0, ls=":")
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    plt.tight_layout()
-
     fig_path = os.path.join(args.out_dir, "fig_speed_panels.pdf")
     png_path = os.path.join(args.preview_dir, "fig_speed_panels_preview.png")
-    plt.savefig(fig_path, dpi=200, bbox_inches="tight")
-    plt.savefig(png_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    draw_speed_figure(rows, [fig_path, png_path])
     with open(os.path.join(args.out_dir, "chosen.json"), "w") as f:
         json.dump({"video": chosen["video"], "e2": e2,
                    "threshold": args.threshold, "min_area": args.min_area,

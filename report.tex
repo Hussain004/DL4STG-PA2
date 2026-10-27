@@ -1187,4 +1187,272 @@ Prediction written before training B--D:
         high speed will be D, then C, then A.
 \end{itemize}
 
+\vspace{10pt}
+\hrule
+\vspace{4pt}
+
+\section*{What Can Data Fix?}
+
+I trained models B, C and D with the same protocol as model A (Adam, learning rate $10^{-3}$, batch size 32,
+30 epochs, final-epoch weights, seeds 0 and 1) on the same RTX 5060 Ti. Symmetry augmentation draws $g$
+uniformly from $G$ for every training window and applies it to the input and the target. Speed augmentation
+draws $k$ uniformly from $\{1,2,3\}$ and then $t$ uniformly from the allowed starts ($t\le14$, $8$ and $2$ at
+$1\times$, $2\times$ and $3\times$). When a window has fewer than five target frames, the loss is taken over the
+available frames only. The window sampler of B--D draws $t$, $k$ and $g$ with \texttt{torch.randint} inside the
+data loader, so every epoch gets new draws. Model A was trained earlier with a sampler that repeated the same
+sequence of $t$ values in every epoch, so I retrained it with the new sampler (seeds 0 and 1) to see whether
+that matters. Its test errors came out the same ($E^{(5)}=0.0221$ for both versions, and $E^{(2)}$ at $2\times$
+is 0.0441 against 0.0448), so the comparisons between A and B--D are not affected by it.
+
+\subsection*{Q2.12}
+
+The manual lists larger kernels as one way to get a larger reach, so model D is model A with $5\times5$ kernels
+instead of $3\times3$ in both ConvLSTM layers. The input and output shapes, the $4\times4$ patch folding, the
+$1\times1$ output convolution and the 9-step rollout are all as in model A. With 64 hidden channels, $5\times5$
+kernels would need about 1.33 million parameters, which is over the limit of 721,176, so I reduced the hidden
+channels from 64 to 40. This gives 544,976 trainable parameters.
+
+Reach, with the conventions of Q2.3 (one grid cell is 4 original pixels, so a $5\times5$ kernel moves information
+by two cells, which is 8 pixels):
+\begin{itemize}
+  \item $u_\tau \to$ layer 1 ($+8$ pixels) $\to$ layer 2 ($+8$ pixels): 16 pixels
+  \item $h^{(1)}_{\tau-1} \to$ layer 1 $\to$ layer 2: $8+8=16$ pixels
+  \item $h^{(2)}_{\tau-1} \to$ layer 2: $8$ pixels
+\end{itemize}
+The longest path gives a reach of 16 pixels per time step, which is larger than the 8 pixels of model A. It
+is also above the 9.96 pixels per frame of a typical digit at $3\times$ (the 3.32 pixels per frame of
+Figure~\ref{fig:flow} times 3), and above the fastest digits at $3\times$, which move about 14 pixels.
+
+\subsection*{Q2.13}
+
+\textbf{Mirror and rotation: appearance.} Model B differs from A only in the symmetry augmentation. It cuts
+$C_M$ from $1.90\times10^{-3}$ to $9.37\times10^{-4}$ and $C_R$ from $3.16\times10^{-3}$ to $1.15\times10^{-3}$,
+and its transformed errors ($E_M=0.0231$, $E_R=0.0230$) now equal its normal error ($E^{(5)}=0.0231$), where
+for A they were 0.0227 and 0.0239 against 0.0221. So showing the model the new appearances was enough, with no
+change in the motion data or the architecture. It is a partial fix, since the gaps are smaller but not zero.
+
+\textbf{Speed: mostly unfamiliar motion.} Model C has the same architecture as A and differs only in the
+training speeds, and its $E^{(2)}$ falls from 0.0448 to 0.0294 at $2\times$ and from 0.0517 to 0.0337 at
+$3\times$ (about a third each). Model B, which sees new appearances but no new speeds, hardly changes
+(0.0434 and 0.0501).
+
+\textbf{Architectural reach: a smaller part.} Model D reaches 16 pixels instead of 8, and relative to C it improves
+$E^{(2)}$ at $3\times$ from 0.0337 to 0.0312 and at
+$2\times$ from 0.0294 to 0.0281, while at $1\times$ it got slightly worse (0.0237 to 0.0252). D differs from C in
+more than the reach (it also has 40 hidden channels instead of 64), so I cannot say that all of the improvement comes
+from the reach. The remaining gap between $3\times$ and $1\times$ for D is a factor of 1.24, below the factor of
+1.28 by which Copy-last gets worse over the same change of speed (0.0548 to 0.0703), because at $3\times$ the two
+forecast horizons are 3 and 6 frames ahead instead of 1 and 2. So what is left looks like a harder forecast and not
+a reach limit.
+
+In my results model C does not still do badly at $3\times$ while model D does well. But if it had happened, it would tell me that the failure was architectural. More training data only changes
+what the weights do with the pixels the network can see; it cannot make an output pixel depend on input pixels
+outside the reach, so a digit that jumps farther than the reach between two frames keeps its old position out of
+sight of its new position, however many such windows are in the training data. That model C copes with the
+9.96-pixel steps of $3\times$ even though its reach is 8 pixels means that the reach is not a sharp cutoff. One
+possibility is that the digits are about 20 pixels wide, so a shifted digit still overlaps its old position though I did
+not test this.
+
+Compared with my prediction in Q2.11: B and C did what I wrote (B fixed mirror and rotation but not speed, C
+fixed $2\times$ and improved $3\times$). I expected extra data to stop helping at $3\times$ because of the reach,
+and it did not, and D is not the model that fully fixes $3\times$.
+
+\subsection*{Q2.14}
+
+Yes. On the original $1\times$ clips $E^{(5)}$ goes from 0.0221 (A) to 0.0231 for B, 0.0275 for C and 0.0279 for D, and $E^{(2)}$ at $1\times$ goes from 0.0184 to 0.0237 for C and 0.0252 for D.
+Model D also trains slower per epoch (5.41\,s against 4.44\,s) and predicts slower as well (0.197\,s against
+0.167\,s), because of its larger kernels. I think it is worth it unless the system will only ever see normal speed.
+In exchange, the mean $E^{(2)}$ over the three speeds falls from 0.0383 (A) to 0.0282 (D), and A's error at
+$2\times$ (0.0448) was worse than the Blank predictor (0.0426), while D's (0.0281) is not. If only $1\times$ clips
+mattered, A or B would be the better choice. The forecasts of C and D are also softer: the brightest pixel of the
+first forecast averages 0.83 for A, 0.57 for C and 0.50 for D (seed 0, test videos; it is 1.0 in the true frame).
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l ccccc@{}}
+  \toprule
+  Model & $E^{(5)}$ & $C_M$ & $E_M$ & $C_R$ & $E_R$ \\
+  \midrule
+A & 0.0221 & 0.00190 & 0.0227 & 0.00316 & 0.0239 \\
+ & \scriptsize(0.0227, 0.0215) & \scriptsize(0.00187, 0.00193) & \scriptsize(0.0233, 0.0221) & \scriptsize(0.00312, 0.00320) & \scriptsize(0.0244, 0.0233) \\
+\addlinespace[2pt]
+B & 0.0231 & 9.37$\times10^{-4}$ & 0.0231 & 0.00115 & 0.0230 \\
+ & \scriptsize(0.0235, 0.0226) & \scriptsize(9.00, 9.73)$\times10^{-4}$ & \scriptsize(0.0235, 0.0226) & \scriptsize(0.00123, 0.00108) & \scriptsize(0.0235, 0.0226) \\
+\addlinespace[2pt]
+C & 0.0275 & 7.53$\times10^{-4}$ & 0.0277 & 0.00189 & 0.0285 \\
+ & \scriptsize(0.0281, 0.0270) & \scriptsize(5.42, 9.64)$\times10^{-4}$ & \scriptsize(0.0281, 0.0273) & \scriptsize(0.00148, 0.00230) & \scriptsize(0.0289, 0.0282) \\
+\addlinespace[2pt]
+D & 0.0279 & 0.00114 & 0.0280 & 0.00166 & 0.0287 \\
+ & \scriptsize(0.0278, 0.0280) & \scriptsize(0.00155, $7.35\times10^{-4}$) & \scriptsize(0.0280, 0.0281) & \scriptsize(0.00205, 0.00127) & \scriptsize(0.0287, 0.0287) \\
+  \bottomrule
+\end{tabular}
+
+\vspace{8pt}
+
+\begin{tabular}{@{}l ccc rcc@{}}
+  \toprule
+  Model & $E^{(2)}_{1\times}$ & $E^{(2)}_{2\times}$ & $E^{(2)}_{3\times}$ & Params & Train (s/epoch) & Infer (s) \\
+  \midrule
+A & 0.0184 & 0.0448 & 0.0517 & 480{,}784 & 4.46 & 0.167 \\
+ & \scriptsize(0.0190, 0.0179) & \scriptsize(0.0443, 0.0454) & \scriptsize(0.0508, 0.0525) &  & \scriptsize(4.46, 4.46) & \scriptsize(0.169, 0.166) \\
+\addlinespace[2pt]
+B & 0.0193 & 0.0434 & 0.0501 & 480{,}784 & 4.43 & 0.167 \\
+ & \scriptsize(0.0198, 0.0189) & \scriptsize(0.0433, 0.0436) & \scriptsize(0.0495, 0.0508) &  & \scriptsize(4.43, 4.44) & \scriptsize(0.166, 0.168) \\
+\addlinespace[2pt]
+C & 0.0237 & 0.0294 & 0.0337 & 480{,}784 & 4.44 & 0.168 \\
+ & \scriptsize(0.0241, 0.0233) & \scriptsize(0.0299, 0.0288) & \scriptsize(0.0339, 0.0335) &  & \scriptsize(4.43, 4.44) & \scriptsize(0.170, 0.165) \\
+\addlinespace[2pt]
+D & 0.0252 & 0.0281 & 0.0312 & 544{,}976 & 5.41 & 0.197 \\
+ & \scriptsize(0.0250, 0.0255) & \scriptsize(0.0280, 0.0282) & \scriptsize(0.0309, 0.0315) &  & \scriptsize(5.40, 5.42) & \scriptsize(0.196, 0.198) \\
+  \bottomrule
+\end{tabular}
+  \caption{Models A--D on the 1,000 test videos. $E^{(5)}$, $C_M$, $E_M$, $C_R$ and $E_R$ are at $1\times$ with
+  $t=1$; $E^{(2)}$ is at $1\times$, $2\times$ and $3\times$ with $t=1$; Params is the trainable parameter count.
+  Every entry is mean (seed 0, seed 1), with the seeds in the small line; the table is split into two blocks of
+  columns to fit the page.} 
+  % Training time is the mean wall-clock time per epoch over all 30 epochs on the RTX 5060 Ti
+  % (the 4.46\,s for A is from its original training log). Inference time is for all 1,000 test videos at batch
+  % size 32 with \texttt{model.eval()} and \texttt{torch.no\_grad()}, timed after each batch is on the GPU and after
+  % one untimed warm-up batch, which is why A's 0.167\,s here is lower than the 0.313\,s in Table 2 (there the
+  % first batch was timed with no warm-up).}
+  \label{tab:models}
+\end{table}
+
+\vspace{10pt}
+\hrule
+\vspace{4pt}
+
+\section*{The Final Model}
+
+\subsection*{The symmetrised forecaster}
+
+For any trained $f$, $\bar f(X)=\frac18\sum_{g\in G}g^{-1}(f(g(X)))$. Take $T=M$ or $T=R$, which are both in $G$. Putting
+$h=gT$, so that $g^{-1}=Th^{-1}$,
+\[
+\bar f(T(X)) = \tfrac18\sum_{g\in G} g^{-1}\big(f(gT(X))\big) = \tfrac18\sum_{h\in G} T\big(h^{-1}(f(h(X)))\big) = T(\bar f(X)).
+\]
+This works because as $g$ goes through all of $G$, so does $h$, and $T$ only moves pixels, so it can be taken out of
+the sum. So $C_M=C_R=0$. On the computer the two sides are the same eight numbers added in a different order, so
+Table~\ref{tab:sym} shows values around $10^{-17}$ instead of exactly 0.
+
+\subsection*{Choice of the final model}
+
+The final model is {model D, wrapped as a symmetrised forecaster} (Table~\ref{tab:sym}). I also trained the
+optional D+B, but one of its two seeds did not train properly (its $E^{(5)}$ is 0.0386, against 0.0274 for the
+other seed), so I do not use it and leave it out of the tables.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.98\linewidth]{fig_final_panels.pdf}\\[6pt]
+  \includegraphics[width=0.86\linewidth]{fig_final_speed.pdf}
+  \caption{The final model (D, symmetrised; seed 0). (a) Figure~\ref{fig:transformations} repeated on the same four
+  test videos (mirror: 9691 and 9163; rotation: 9497 and 9964), with the same four rows of ten frames. Rows (3) and
+  (4) are identical up to rounding error ($C$ is between $5\times10^{-17}$ and $8\times10^{-17}$ in every panel).
+  (b) Figure~\ref{fig:speed} repeated on the same test video (9633) at $1\times$, $2\times$ and $3\times$. Its per-video
+  $E^{(2)}$ is 0.0391, 0.0448 and 0.0491 (model A: 0.0205, 0.0642 and 0.0775).}
+  \label{fig:final}
+\end{figure}
+
+\subsection*{Q2.15}
+
+\textbf{Consistency.} Learned symmetry (model B) is only partly consistent: $C_M=9.37\times10^{-4}$ and
+$C_R=1.15\times10^{-3}$, about half and a third of model A's. The symmetrised models are exactly consistent
+($C_M$ and $C_R$ of order $10^{-17}$ for both B and D). \textbf{Accuracy.} On the original clips symmetrised B has
+$E^{(5)}=0.0226$ against 0.0231 for B, and symmetrised D 0.0277 against 0.0279 for D; on the transformed clips
+$E_M$ and $E_R$ are equal to $E^{(5)}$ for the symmetrised models, while B's are 0.0231 and 0.0230. \textbf{Cost.}
+B costs nothing at inference (0.167\,s for the 1,000 test videos) but needs the same training as A; the wrapper
+needs no training but makes inference about ten times slower (1.66\,s against 0.167\,s for B) because every video
+goes through the network eight times.
+
+The built-in symmetry is the exact one. The wrapper averages over the whole group, so relabelling the
+transformations does not change the sum, and nothing depends on what the weights learned. Augmentation only
+penalises the errors on the transformations that happened to be sampled, so it can lower the gap but has no way to
+make it zero.
+
+Averaging eight predictions can blur them when the eight disagree about where a digit goes, since their mean is then
+a smear, and the built-in symmetry can also hurt when the data are not really symmetric (for example digits that
+must stay upright, or a physical effect with a preferred direction). Here it did not hurt: the symmetrised models are
+a little better than the plain ones (B 0.0226 against 0.0231, D 0.0277 against 0.0279, and A 0.0220 against 0.0221),
+which fits the motion in this data being symmetric and the eight predictions mostly agreeing.
+
+\subsection*{Q2.16}
+
+Not well. In Figure~\ref{fig:final} (video 9497, rotation) rows 3 and 4 are now the same, so the disagreement
+from Q2.7, with row 4 slowing down and bending away from row 3, is gone, and that is the symmetrised wrapper at
+work. The rest of the failure is still there. Looking at the centre of the bright mass as in Q2.7, the true digit
+moves about 8 pixels to the right over the five horizons while the final forecast moves about 5 pixels, which is
+as far as model A's row 3 (5.6 pixels) but still well short, and it sits about 2 pixels lower than the truth, so it
+still falls behind. The digits are still lost: the forecast is a faint cloud whose peak intensity is about 0.5,
+fainter than model A's 0.70--0.83. So the change that fixed the disagreement is the symmetrisation, with the symmetry
+augmentation of B helping only partly ($C_R$ halved but not removed); the speed-augmented training and larger reach
+of C and D did not fix the lag or the blur at normal speed. The per-video $E_R$ is lower than A's (0.0332 against
+0.0365), but I think that is only because a soft cloud is cheap under squared error.
+
+\subsection*{Q2.17}
+
+Partly. The final model (D, symmetrised) is exactly consistent under mirror and rotation, its $E^{(2)}$ at $2\times$
+and $3\times$ is 0.0281 and 0.0310 where A's was 0.0448 and 0.0517, and on time-reversed test videos, which no model
+trained on, its $E^{(5)}$ is 0.0276 against 0.0277 forward. Its $3\times$ error is 1.23 times its $1\times$ error,
+below the 1.28 of Copy-last, so the rest looks like a harder task. A skeptic would still want unseen digit shapes
+and other motion rules (accelerating digits, no bounces) which I did not test. One test it has not passed is drawing
+the next frame sharply: digits move in straight lines, yet even at horizon 1 the forecasts in Figure~\ref{fig:final}(b)
+are soft, and its $1\times$ error is 25\% above model A's.
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l ccccc@{}}
+  \toprule
+  Model & $E^{(5)}$ & $C_M$ & $E_M$ & $C_R$ & $E_R$ \\
+  \midrule
+B, symmetrised & 0.0226 & 7.46$\times10^{-17}$ & 0.0226 & 6.02$\times10^{-17}$ & 0.0226 \\
+ & \scriptsize(0.0230, 0.0222) & \scriptsize(7.06, 7.85)$\times10^{-17}$ & \scriptsize(0.0230, 0.0222) & \scriptsize(5.73, 6.32)$\times10^{-17}$ & \scriptsize(0.0230, 0.0222) \\
+\addlinespace[2pt]
+D, symmetrised (final) & 0.0277 & 4.73$\times10^{-17}$ & 0.0277 & 3.50$\times10^{-17}$ & 0.0277 \\
+ & \scriptsize(0.0275, 0.0279) & \scriptsize(4.63, 4.82)$\times10^{-17}$ & \scriptsize(0.0275, 0.0279) & \scriptsize(3.47, 3.52)$\times10^{-17}$ & \scriptsize(0.0275, 0.0279) \\
+  \bottomrule
+\end{tabular}
+
+\vspace{8pt}
+
+\begin{tabular}{@{}l ccc rcc@{}}
+  \toprule
+  Model & $E^{(2)}_{1\times}$ & $E^{(2)}_{2\times}$ & $E^{(2)}_{3\times}$ & Params & Train (s/epoch) & Infer (s) \\
+  \midrule
+B, symmetrised & 0.0190 & 0.0428 & 0.0493 & 480{,}784 & 4.43 & 1.66 \\
+ & \scriptsize(0.0194, 0.0186) & \scriptsize(0.0427, 0.0429) & \scriptsize(0.0488, 0.0498) &  & \scriptsize(4.43, 4.44) & \scriptsize(1.66, 1.66) \\
+\addlinespace[2pt]
+D, symmetrised (final) & 0.0252 & 0.0281 & 0.0310 & 544{,}976 & 5.41 & 1.69 \\
+ & \scriptsize(0.0250, 0.0255) & \scriptsize(0.0279, 0.0282) & \scriptsize(0.0307, 0.0313) &  & \scriptsize(5.40, 5.42) & \scriptsize(1.69, 1.69) \\
+  \bottomrule
+\end{tabular}
+  \caption{Symmetrised B and symmetrised D (the final model) on the 1,000 test videos, with the same columns as
+  Table~\ref{tab:models}. Entries are mean (seed 0, seed 1). Training time is that of the underlying learned model;
+  the wrapper needs no training. Inference time includes the eight transformations, the eight forward passes, the
+  inverse transformations and the averaging. $C_M$ and $C_R$ are zero up to floating-point error.}
+  \label{tab:sym}
+\end{table}
+
+\section*{Generative AI Declaration}
+
+For this question I also used the same assistant, but only to write and run the code
+of the experiments. My prompts described what to train or measure, for example the training runs for
+models A--D, the mirror/rotation and speed checks of the ``Testing the Baseline'' part, the symmetrised
+wrapper of the final model, and the four extra designs below. All of the analysis is my own: I read the numbers and the forecast frames
+myself, and I wrote the answer sections; the AI only helped me polish my wording afterwards. The AI
+designed the figures and the tables of this report from my saved results; I checked the numbers in them
+against the JSON files.
+
+The outputs were four validation results:
+\begin{itemize}
+  \item (1) $5\times5$ in layer 1 only: no better than model C.
+  \item (2) $5\times5$ in layer 2 only: collapsed to a near-constant prediction.
+  \item (3) a third ConvLSTM layer: collapsed the same way.
+  \item (4) $5\times5$ in both layers with 40 hidden channels: the best of the four. I took this design as
+  model D, and it is the model D of Table~\ref{tab:models} and Table~\ref{tab:sym}.
+\end{itemize}
+
 \end{document}
