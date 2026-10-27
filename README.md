@@ -60,7 +60,7 @@ the candidate designs for model D that were compared on the validation split
 produces Figure 6 and `q2/code/extra_checks.py` the extra numbers quoted in
 Q2.16 and Q2.17.
 
-## Figure 3 GIFs
+### Figure 3 GIFs
 
 The four Figure 3 panels are saved as animated GIFs in `q2/figures/`. Each one
 steps through the five forecast horizons while keeping the same four rows.
@@ -81,7 +81,7 @@ Rotation, second largest `C_R` (`q2/figures/fig3_rotation_rank2_video9964.gif`):
 
 ![Rotation rank 2, video 9964](q2/figures/fig3_rotation_rank2_video9964.gif)
 
-## Figure 6 GIFs
+### Figure 6 GIFs
 
 The Figure 6(a) panels with the final model (model D, symmetrised) are saved in
 `q2/figures/` in the same way, for the same four test videos as Figure 3. Rows 3
